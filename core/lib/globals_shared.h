@@ -17,8 +17,19 @@
  * and/or other materials provided with the distribution.
  */
 
+
 #ifndef _GLOBALS_SHARED_H_
 #define _GLOBALS_SHARED_H_
+
+#define MAXINUM_PATH	260
+
+#ifndef DR_DO_NOT_DEFINE_uint
+ typedef unsigned int uint;
+#endif
+
+#ifndef NULL
+#  define NULL (0)
+#endif
 
 #ifndef __cplusplus
 #	ifndef DE_DO_NOT_DEFINE_bool
@@ -58,6 +69,13 @@ enum {
 
     RUNUNDER_EXPLICIT             = 0x80,  /* 128 */
 };
+
+
+/* convenience macros for secure string buffer operations */
+#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
+#define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
 
 
 #endif

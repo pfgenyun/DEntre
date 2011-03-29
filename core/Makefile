@@ -35,12 +35,12 @@ LIBDIR = ../build/
 
 ALL:
 	$(CC) ${C_FLAG} ${D_FLAG} ${TOOL_FLAG} linux/preload.c          -c -o  ${OBJDIR}preload.o;			\
-	#$(CC) ${C_FLAG} ${D_FLAG} ${TOOL_FLAG} linux/os.c               -c -o  ${OBJDIR}os.o;				\
-	#$(CC) ${C_FLAG} ${D_FLAG} ${TOOL_FLAG} utils.c                  -c -o  ${OBJDIR}utils.o;			\
-	#$(CC) ${C_FLAG} ${D_FLAG} ${TOOL_FLAG} config.c                 -c -o  ${OBJDIR}config.o;			\
+	$(CC) ${C_FLAG} ${D_FLAG} ${TOOL_FLAG} linux/os.c               -c -o  ${OBJDIR}os.o;				\
+	$(CC) ${C_FLAG} ${D_FLAG} ${TOOL_FLAG} utils.c                  -c -o  ${OBJDIR}utils.o;			\
+	$(CC) ${C_FLAG} ${D_FLAG} ${TOOL_FLAG} config.c                 -c -o  ${OBJDIR}config.o;			\
 																										\
 	cd ${OBJDIR};											 \
-	#${CC} ${C_FLAG} ${LINK_FLAG} -nostartfiles  -o  libpreload.so $(OBJ_PRELOAD);		\
+	${CC} ${C_FLAG} ${LINK_FLAG} -nostartfiles  -o  libpreload.so $(OBJ_PRELOAD);		\
 	cd -;													
 
 	

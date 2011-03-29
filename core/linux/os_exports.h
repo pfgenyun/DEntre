@@ -17,17 +17,20 @@
  * and/or other materials provided with the distribution.
  */
 
-#ifndef _GLOBALS_H_
-#define _GLOBALS_H_
+#ifndef _OS_EXPORTS_H_
+#define _OS_EXPORTS_H_	1
 
-#include "lib/globals_shared.h"
-#include "linux/os_exports.h"
+#include <sys/types.h>
 
-#ifdef USE_VISIBILITY_ATTRIBUTES
-#	define DENTRE_EXPORT	__attribute__ ((visibility ("protected")))
-#else
-#define DENTRE_EXPORT	
-#endif
+
+/* We do NOT want our libc routines wrapped by pthreads, so we use
+ * our own syscall wrappers.
+ */
+int open_syscall(const char *file, int flags, int mode);
+int close_syscall(int fd);
+ssize_t read_syscall(int fd, void *buf, size_t nbytes);
+ssize_t write_syscall(int fd, const void *buf, size_t nbytes);
+
 
 
 #endif
