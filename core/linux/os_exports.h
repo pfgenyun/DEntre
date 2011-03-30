@@ -21,6 +21,7 @@
 #define _OS_EXPORTS_H_	1
 
 #include <sys/types.h>
+#include "../os_shared.h"
 
 
 /* We do NOT want our libc routines wrapped by pthreads, so we use

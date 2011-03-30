@@ -34,8 +34,8 @@
 #endif
 
 #if START_DENTRE
-char *get_application_short_name(void);
-int dentre_application_init(void);
+const char *get_application_short_name(void);
+int dentre_app_init(void);
 int dentre_app_take_over(void);
 #endif
 
@@ -120,8 +120,8 @@ _init()
 	if(!take_over(name))
 		return 0;
 
-	init = dentre_application_init();
-	pf("dentre_application_init return %d\n", init);
+	init = dentre_app_init();
+	pf("dentre_app_init return %d\n", init);
 	dentre_app_take_over();
 	pf("dentre started\n");
 #endif

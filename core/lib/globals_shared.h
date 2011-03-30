@@ -21,11 +21,16 @@
 #ifndef _GLOBALS_SHARED_H_
 #define _GLOBALS_SHARED_H_
 
+#include <sys/types.h>
+
 #define MAXINUM_PATH	260
 
 #ifndef DR_DO_NOT_DEFINE_uint
  typedef unsigned int uint;
 #endif
+
+typedef pid_t thread_id_t;
+typedef pid_t process_id_t;
 
 #ifndef NULL
 #  define NULL (0)
@@ -39,6 +44,11 @@ typedef int		bool;
 #define false	(0)
 #endif
 
+typedef int file_t;
+/** The sentinel value for an invalid file_t. */
+#define INVALID_FILE -1
+
+
 #define TESTALL(mask, var)	((mask) & (var) == (mask))
 #define TESTANY(mask, var)	((mask) & (var) != 0 )
 #define TEST	TESTANY
@@ -48,8 +58,41 @@ typedef int		bool;
 
 #define DENTRE_VAR_RUNUNDER_ID	DENTRE_RUNUNDER
 
-#define DENTRE_VAR_RUNUNDER	STRINGIFY(DENTRE_VAR_RUNUNDER_ID)
+/* FIXME: the environment vars need to be renamed - it will be a pain */
+#define DENTRE_HOME_ID			DENTRE_HOME
+#define DENTRE_LOGDIR_ID		DENTRE_LOGDIR
+#define DENTRE_OPTIONS_ID		DENTRE_OPTIONS
+#define DENTRE_AUTOINJECT_ID	DENTRE_AUTOINJECT
+#define DENTRE_UNSUPPORTED_ID	DENTRE_UNSUPPORTED
+#define DENTRE_RUNUNDER_ID		DENTRE_RUNUNDER
+#define DENTRE_CMDLINE_ID		DENTRE_CMDLINE
+#define DENTRE_ONCRASH_ID		DENTRE_ONCRASH
+#define DENTRE_SAFEMARKER_ID	DENTRE_SAFEMARKER 
+/* NT only, value should be all CAPS and specifies a boot option to match */
 
+#define DENTRE_VAR_CACHE_ROOT_ID   DENTRE_CACHE_ROOT
+/* we have to create our own properly secured directory, that allows
+ * only trusted producers to create DLLs, and all publishers to read
+ * them.  Note that per-user directories may also be created by the trusted component
+ * allowing users to safely use their own private caches.
+ */
+#define DENTRE_VAR_CACHE_SHARED_ID   DENTRE_CACHE_SHARED
+/* a directory giving full write privileges to Everyone.  Therefore
+ * none of its contents can be trusted without explicit verification.
+ * Expected to be a subdirectory of DENTRE_CACHE_ROOT.
+ */
+
+#define DENTRE_VAR_HOME			STRINGIFY(DENTRE_VAR_HOME_ID)
+#define DENTRE_VAR_LOGDIR		STRINGIFY(DENTRE_VAR_LOGDIR_ID)
+#define DENTRE_VAR_OPTIONS		STRINGIFY(DENTRE_VAR_OPTIONS_ID)
+#define DENTRE_VAR_AUTOINJECT	STRINGIFY(DENTRE_VAR_AUTOINJECT_ID)
+#define DENTRE_VAR_UNSUPPORTED	STRINGIFY(DENTRE_VAR_UNSUPPORTED_ID)
+#define DENTRE_VAR_RUNUNDER		STRINGIFY(DENTRE_VAR_RUNUNDER_ID)
+#define DENTRE_VAR_CMDLINE		STRINGIFY(DENTRE_VAR_CMDLINE_ID)
+#define DENTRE_VAR_ONCRASH		STRINGIFY(DENTRE_VAR_ONCRASH_ID)
+#define DENTRE_VAR_SAFEMARKER	STRINGIFY(DENTRE_VAR_SAFEMARKER_ID)
+#define DENTRE_VAR_CACHE_ROOT	STRINGIFY(DENTRE_VAR_CACHE_ROOT_ID)
+#define DENTRE_VAR_CACHE_SHARED	STRINGIFY(DENTRE_VAR_CACHE_SHARED_ID)
 
 enum {
     /* FIXME: keep in mind that we only read decimal values */
@@ -77,5 +120,9 @@ enum {
 #define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
 #define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
 
+
+/* Maximum length of any registry parameter. Note that some are further
+ * restricted to MAXIMUM_PATH from their usage. */
+#define MAX_REGISTRY_PARAMETER 512
 
 #endif

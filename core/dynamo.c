@@ -17,20 +17,12 @@
  * and/or other materials provided with the distribution.
  */
 
-#ifndef _GLOBALS_H_
-#define _GLOBALS_H_
+#include "globals.h"
 
-#include "lib/globals_shared.h"
-#include "linux/os_exports.h"
+DENTRE_EXPORT int
+dentre_app_init(void)
+{
 
-#define SUCCESS	(1)
-#define FAILURE	(0)
+	return SUCCESS;
 
-#ifdef USE_VISIBILITY_ATTRIBUTES
-#	define DENTRE_EXPORT	__attribute__ ((visibility ("protected")))
-#else
-#define DENTRE_EXPORT	
-#endif
-
-
-#endif
+}
