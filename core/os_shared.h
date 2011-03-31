@@ -18,7 +18,7 @@
  */
 
 #ifndef _OS_SHARED_H_
-#define _OS_SHARED_H_
+#define _OS_SHARED_H_	1
 
 
 /* file operations */
@@ -37,6 +37,32 @@
  * privileges.
  */
 
+file_t os_open(const char *fname, int os_open_flags);
+file_t os_open_directory(const char *fname, int os_open_flags);
+
+void os_close(file_t f);
+/* returns number of bytes written, negative if failure */
+ssize_t os_write(file_t f, const void *buf, size_t count);
+/* returns number of bytes read, negative if failure */
+ssize_t os_read(file_t f, void *buf, size_t count);
+void os_flush(file_t f);
+
+/* For use with os_file_seek(), specifies the origin at which to apply the offset
+ * NOTE - keep in synch with DR_SEEK_* in insturment.h and SEEK_* from Linux headers */
+#define OS_SEEK_SET 0  /* start of file */
+#define OS_SEEK_CUR 1  /* current file position */
+#define OS_SEEK_END 2  /* end of file */
+/* seek the current file position to offset bytes from origin, return true if successful */
+bool os_seek(file_t f, int64 offset, int origin);
+/* return the current file position, -1 on failure */
+int64 os_tell(file_t f);
+
+bool os_delete_file(const char *file_name);
+bool os_delete_mapped_file(const char *filename);
+bool os_rename_file(const char *orig_name, const char *new_name, bool replace);
+/* These routines do not update dynamo_areas; use the non-os_-prefixed versions */
+
+process_id_t get_process_id(void);
 char *get_application_pid(void);
 char *get_application_name(void);
 const char *get_application_short_name(void);

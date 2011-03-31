@@ -61,7 +61,7 @@ DECLARE_NEVERPROT_VAR(static int infolevel, VERBOSE);
 		{	\
 			if(infolevel >= (level))	\
 				printf_file(STDERR, "<"fmt">\n", __VA_ARGS__);	\
-		}while (0);
+		}while (0)         /* should not with ; */
 #else
 #	define INFO(level, fmt, ...) 
 #endif
@@ -143,6 +143,35 @@ typedef struct _config_info_t
 
 static config_vals_t myvals;
 static config_info_t config;
+
+const char *
+get_config_val_ex(const char *var, bool *app_specific, bool *from_env)
+{
+    uint i;
+    config_info_t *cfg = &config;
+    ASSERT(var != NULL);
+    ASSERT(cfg->u.v != NULL);
+    /* perf: we could stick the names in a hashtable */
+    for (i = 0; i < NUM_CONFIG_VAR; i++) {
+        if (strstr(var, config_var[i]) == var) {
+            if (cfg->u.v->vals[i].has_value) {
+                if (app_specific != NULL)
+                    *app_specific = cfg->u.v->vals[i].app_specific;
+                if (from_env != NULL)
+                    *from_env = cfg->u.v->vals[i].from_env;
+                return (const char *) cfg->u.v->vals[i].val;
+            } else
+                return NULL;
+        }
+    }
+    return NULL;
+}
+
+const char *
+get_config_val(const char *var)
+{
+    return get_config_val_ex(var, NULL, NULL);
+}
 
 static void
 set_config_from_env(config_info_t *cfg)

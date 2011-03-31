@@ -22,8 +22,8 @@ OBJ_DENTRE = utils.o
 SOURCE_DENTRE = utils.c
 
 CC = gcc
-C_FLAG = -g -O0 -fPIC -shared -DO32
-C_FLAG_PRELOAD = -DNOT_DENTRE_CORE_PROPER
+C_FLAG = -g -O0 -fPIC -shared -DO32  
+C_FLAG_PRELOAD = -DNOT_DENTRE_CORE_PROPER 
 C_FLAG_DENTRE  = 
 LINK_FLAG = -ldl 
 
@@ -40,8 +40,8 @@ ALL:
 	$(CC) ${C_FLAG} ${C_FLAG_PRELOAD} ${D_FLAG} ${TOOL_FLAG} linux/os.c               -c -o  ${OBJDIR}os.o;				\
 	$(CC) ${C_FLAG} ${C_FLAG_PRELOAD} ${D_FLAG} ${TOOL_FLAG} config.c                 -c -o  ${OBJDIR}config.o;			\
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} utils.c                  -c -o  ${OBJDIR}utils.o;			\
-	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} dynamo.c                 -c -o  ${OBJDIR}config.o;			\
-																										\
+	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} dynamo.c                 -c -o  ${OBJDIR}dynamo.o;			\
+															\
 	cd ${OBJDIR};											 \
 	${CC} ${C_FLAG} ${LINK_FLAG} -nostartfiles  -o  libpreload.so $(OBJ_PRELOAD);		\
 	cd -;													

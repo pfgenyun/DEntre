@@ -19,15 +19,48 @@
 
 
 #ifndef _GLOBALS_SHARED_H_
-#define _GLOBALS_SHARED_H_
+#define _GLOBALS_SHARED_H_	1
 
 #include <sys/types.h>
 
 #define MAXINUM_PATH	260
 
-#ifndef DR_DO_NOT_DEFINE_uint
- typedef unsigned int uint;
+#ifndef DE_DO_NOT_DEFINE_uint
+	typedef unsigned int uint;
 #endif
+
+
+#ifdef N64
+#	ifndef DE_DO_NOT_DEFINE_uint64
+typedef unsigned long int uint64;
+#	endif
+#	ifndef DE_DO_NOT_DEFINE_int64
+typedef long int int64;
+#	endif
+#else
+#	ifndef DE_DO_NOT_DEFINE_uint64
+typedef unsigned long long int uint64;
+#	endif
+#	ifndef DE_DO_NOT_DEFINE_int64
+typedef long long int int64;
+#	endif
+#endif
+
+
+/* a register value: could be of any type; size is what matters. */
+#ifdef N64
+typedef uint64 reg_t;
+#else
+typedef uint reg_t;
+#endif
+/* integer whose size is based on pointers: ptr diff, mask, etc. */
+typedef reg_t ptr_uint_t;
+#ifdef N64
+typedef int64 ptr_int_t;
+#else
+typedef int ptr_int_t;
+#endif
+/* for memory region sizes, use size_t */
 
 typedef pid_t thread_id_t;
 typedef pid_t process_id_t;

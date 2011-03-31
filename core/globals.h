@@ -18,10 +18,11 @@
  */
 
 #ifndef _GLOBALS_H_
-#define _GLOBALS_H_
+#define _GLOBALS_H_	1
 
 #include "lib/globals_shared.h"
 #include "linux/os_exports.h"
+#include "utils.h"
 
 #define SUCCESS	(1)
 #define FAILURE	(0)
