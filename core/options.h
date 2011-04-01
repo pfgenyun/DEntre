@@ -17,24 +17,30 @@
  * and/or other materials provided with the distribution.
  */
 
-#ifndef _GLOBALS_H_
-#define _GLOBALS_H_	1
+#ifndef _OPTIONS_H_
+#define _OPTIONS_H_	1
 
-#include "lib/globals_shared.h"
-#include "linux/os_exports.h"
-#include "utils.h"
-#include "lib/de_stats.h"
-
-#define SUCCESS	(1)
-#define FAILURE	(0)
-
-#ifdef USE_VISIBILITY_ATTRIBUTES
-#	define DENTRE_EXPORT	__attribute__ ((visibility ("protected")))
-#else
-#define DENTRE_EXPORT	
+/* the Option struct typedef */
+#ifdef EXPOSE_INTERNAL_OPTIONS
+#  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
+                                  statement, description, flag, pcache)           \
+    type name;
+#else 
+#  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
+                                  statement, description, flag, pcache) /* nothing */
 #endif
 
-/* global instance of statistics struct */
-extern de_statistics_t *stats;
+#define OPTION_COMMAND(type, name, default_value, command_line_option, statement, \
+                       description, flag, pcache)                                 \
+    type name;
+typedef struct _options_t {
+#   include "optionsx.h"
+} options_t;
+
+#undef OPTION_COMMAND
+#undef OPTION_COMMAND_INTERNAL
+
+int 
+options_init(void);
 
 #endif

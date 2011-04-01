@@ -26,6 +26,7 @@
 #include "globals.h"
 
 /* no logfile is set up yet */
+/* here we set VERBOSE to infolevel */
 #if defined(DEBUG) && defined(INTERNAL)
 # define VERBOSE 1
 /*# define VERBOSE 0  pengfei */

@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include "../os_shared.h"
 
+#define VAR_IN_SECTION(name)    __attribute__ ((section (name)))
 
 /* We do NOT want our libc routines wrapped by pthreads, so we use
  * our own syscall wrappers.

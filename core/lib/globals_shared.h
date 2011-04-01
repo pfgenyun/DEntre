@@ -65,6 +65,14 @@ typedef int ptr_int_t;
 typedef pid_t thread_id_t;
 typedef pid_t process_id_t;
 
+
+#ifdef N64
+typedef int64 stats_int_t;
+#else
+typedef int stats_int_t;
+#endif
+
+
 #ifndef NULL
 #  define NULL (0)
 #endif
@@ -127,6 +135,10 @@ typedef int file_t;
 #define DENTRE_VAR_CACHE_ROOT	STRINGIFY(DENTRE_VAR_CACHE_ROOT_ID)
 #define DENTRE_VAR_CACHE_SHARED	STRINGIFY(DENTRE_VAR_CACHE_SHARED_ID)
 
+
+#  define DENTRE_VAR_EXECVE  "DENTRE_POST_EXECVE"
+#  define DENTRE_VAR_EXECVE_LOGDIR  "DENTRE_EXECVE_LOGDIR"
+
 enum {
     /* FIXME: keep in mind that we only read decimal values */
     RUNUNDER_OFF                  = 0x00,   /* 0 */
@@ -156,6 +168,19 @@ enum {
 
 /* Maximum length of any registry parameter. Note that some are further
  * restricted to MAXIMUM_PATH from their usage. */
-#define MAX_REGISTRY_PARAMETER 512
+#define MAX_REGISTRY_PARAMETER	512
+
+#define MAX_OPTIONS_STRING		512
+
+# define IF_WINDOWS(x)
+# define IF_WINDOWS_(x)
+# define _IF_WINDOWS(x)
+# define IF_WINDOWS_ELSE_0(x) (0)
+# define IF_WINDOWS_ELSE(x,y) (y)
+# define IF_WINDOWS_ELSE_NP(x,y) y
+# define IF_LINUX(x) x
+# define IF_LINUX_ELSE(x,y) x
+# define IF_LINUX_(x) x,
+# define _IF_LINUX(x) , x
 
 #endif

@@ -23,6 +23,7 @@ SOURCE_DENTRE = utils.c
 
 CC = gcc
 C_FLAG = -g -O0 -fPIC -shared -DO32  
+#C_FLAG = -g -O0 -fPIC -shared -DO32  -DDEBUG -DINTERNAL
 C_FLAG_PRELOAD = -DNOT_DENTRE_CORE_PROPER 
 C_FLAG_DENTRE  = 
 LINK_FLAG = -ldl 

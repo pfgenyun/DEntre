@@ -26,6 +26,7 @@
 
 #include "../globals.h"
 #include "syscall.h"
+#include "../utils.h"
 
 
 /* must be after X64 is defined */
@@ -107,7 +108,7 @@ write_syscall(int fd, const void *buf, size_t nbytes)
 int
 llseek_syscall(int fd, int64 offset, int origin, int64 *result)
 {
-#ifdef X64
+#ifdef N64
     *result = dentre_syscall(SYS_lseek, 3, fd, offset, origin);
     return ((*result > 0) ? 0 : (int)*result);
 #else
@@ -243,5 +244,9 @@ os_delete_mapped_file(const char *filename)
     return os_delete_file(filename);
 }
 
-
-
+/* since 1970 */
+uint 
+query_time_seconds()
+{
+	return (uint) dentre_syscall(SYS_time, 1, NULL);
+}

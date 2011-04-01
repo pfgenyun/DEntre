@@ -67,5 +67,19 @@ char *get_application_pid(void);
 char *get_application_name(void);
 const char *get_application_short_name(void);
 
+uint query_time_seconds();
+
+
+/* these must be plain literals since we need these in pragmas/attributes */
+#define NEVER_PROTECTED_SECTION  ".nspdata"
+#define RARELY_PROTECTED_SECTION ".data"
+#define FREQ_PROTECTED_SECTION   ".fspdata"
+#define CXTSW_PROTECTED_SECTION  ".cspdata"
+
+
+#define DECLEAR_CXTSWPROT_VAR(var, ...)							\
+	START_DATA_SECTION(CXTSW_PROTECTED_SECTION, "w")			\
+	var VAR_IN_SECTION(CXTSW_PROTECTED_SECTION) = __VA_ARGS__;	\
+	END_DATA_SECTION()
 
 #endif
