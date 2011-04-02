@@ -25,8 +25,23 @@
 
 #define MAXINUM_PATH	260
 
+
+#ifndef DR_DO_NOT_DEFINE_uint
+typedef unsigned int uint;
+#endif
+#ifndef DR_DO_NOT_DEFINE_ushort
+typedef unsigned short ushort;
+#endif
+#ifndef DR_DO_NOT_DEFINE_byte
+typedef unsigned char byte;
+#endif
+#ifndef DR_DO_NOT_DEFINE_sbyte
+typedef signed char sbyte;
+#endif
+typedef byte * app_pc;
+
 #ifndef DE_DO_NOT_DEFINE_uint
-	typedef unsigned int uint;
+	typedef unsigned int uint32;
 #endif
 
 
@@ -172,6 +187,29 @@ enum {
 
 #define MAX_OPTIONS_STRING		512
 
+#define MAX_LIST_OPTION_LENGTH	512
+
+#define MAX_OPTION_LENGTH		512
+
+#define MAX_PATH_OPTION_LENGTH	512
+
+#ifdef X64
+# define IF_X64(x) x
+# define IF_X64_ELSE(x, y) x
+# define IF_X64_(x) x,
+# define _IF_X64(x) , x
+# define IF_NOT_X64(x)
+# define _IF_NOT_X64(x)
+#else
+# define IF_X64(x)
+# define IF_X64_ELSE(x, y) y
+# define IF_X64_(x)
+# define _IF_X64(x)
+# define IF_NOT_X64(x) x
+# define _IF_NOT_X64(x) , x
+#endif
+/* DR_API EXPORT END */
+
 # define IF_WINDOWS(x)
 # define IF_WINDOWS_(x)
 # define _IF_WINDOWS(x)
@@ -182,5 +220,140 @@ enum {
 # define IF_LINUX_ELSE(x,y) x
 # define IF_LINUX_(x) x,
 # define _IF_LINUX(x) , x
+
+
+/* macros to make conditional compilation look prettier */
+#ifdef DEBUG
+# define IF_DEBUG(x) x
+# define _IF_DEBUG(x) , x
+# define IF_DEBUG_ELSE(x, y) x
+# define IF_DEBUG_ELSE_0(x) (x)
+# define IF_DEBUG_ELSE_NULL(x) (x)
+#else
+# define IF_DEBUG(x)
+# define _IF_DEBUG(x)
+# define IF_DEBUG_ELSE(x, y) y
+# define IF_DEBUG_ELSE_0(x) 0
+# define IF_DEBUG_ELSE_NULL(x) (NULL)
+#endif
+
+
+#ifdef INTERNAL
+# define IF_INTERNAL(x) x
+# define IF_INTERNAL_ELSE(x,y) x
+#else
+# define IF_INTERNAL(x)
+# define IF_INTERNAL_ELSE(x,y) y
+#endif
+
+
+#ifdef CLIENT_INTERFACE
+# define IF_CLIENT_INTERFACE(x) x
+# define IF_CLIENT_INTERFACE_ELSE(x, y) x
+# define _IF_CLIENT_INTERFACE(x) , x
+# define _IF_NOT_CLIENT_INTERFACE(x)
+/* _IF_CLIENT_INTERFACE is too long */
+# define _IF_CLIENT(x) , x
+#else
+# define IF_CLIENT_INTERFACE(x)
+# define IF_CLIENT_INTERFACE_ELSE(x, y) y
+# define _IF_CLIENT_INTERFACE(x)
+# define _IF_NOT_CLIENT_INTERFACE(x) , x
+# define _IF_CLIENT(x)
+#endif
+
+
+#ifdef PROGRAM_SHEPHERDING
+# define IF_PROG_SHEP(x) x
+#else
+# define IF_PROG_SHEP(x)
+#endif
+
+#if defined(PROGRAM_SHEPHERDING) && defined(RCT_IND_BRANCH)
+# define IF_RCT_IND_BRANCH(x) x
+#else
+# define IF_RCT_IND_BRANCH(x)
+#endif
+
+#if defined(PROGRAM_SHEPHERDING) && defined(RETURN_AFTER_CALL)
+# define IF_RETURN_AFTER_CALL(x) x
+# define IF_RETURN_AFTER_CALL_ELSE(x, y) x
+#else
+# define IF_RETURN_AFTER_CALL(x)
+# define IF_RETURN_AFTER_CALL_ELSE(x, y) y
+#endif
+
+#ifdef HOT_PATCHING_INTERFACE
+# define IF_HOTP(x) x
+#else
+# define IF_HOTP(x)
+#endif
+
+
+#ifdef HAVE_TLS
+# define IF_HAVE_TLS_ELSE(x, y) x
+# define IF_NOT_HAVE_TLS(x)
+#else
+# define IF_HAVE_TLS_ELSE(x, y) y
+# define IF_NOT_HAVE_TLS(x) x
+#endif
+
+
+#ifdef VMX86_SERVER
+# define IF_VMX86(x) x
+# define IF_VMX86_ELSE(x,y) x
+# define _IF_VMX86(x) , x
+# define IF_NOT_VMX86(x) 
+#else
+# define IF_VMX86(x)
+# define IF_VMX86_ELSE(x,y) y
+# define _IF_VMX86(x)
+# define IF_NOT_VMX86(x) x
+#endif
+
+typedef enum {
+    SYSLOG_INFORMATION = 0x1,
+    SYSLOG_WARNING     = 0x2,
+    SYSLOG_ERROR       = 0x4,
+    SYSLOG_CRITICAL    = 0x8,
+    SYSLOG_NONE        = 0x0,
+    SYSLOG_ALL         = SYSLOG_INFORMATION | SYSLOG_WARNING | SYSLOG_ERROR | SYSLOG_CRITICAL
+} syslog_event_type_t;
+
+typedef char pathstring_t[MAX_PATH_OPTION_LENGTH];
+
+typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
+
+/* These constants & macros are used by core, share and preinject, so this is
+ * the only place they will build for win32 and linux! */
+/* return codes for [gs]et_parameter style functions
+ * failure == 0 for compatibility with get_parameter()
+ * if GET_PARAMETER_NOAPPSPECIFIC is returned, that means the
+ *  parameter returned is from the global options, because there
+ *  was no app-specific key present.
+ * Note: constants shouldn't be added to this enum without checking whether
+ *       the macros below will work; they should if errors are all negative and
+ *       valid codes are all positive.
+ */
+enum {
+    GET_PARAMETER_BUF_TOO_SMALL = -1,
+    GET_PARAMETER_FAILURE = 0,
+    GET_PARAMETER_SUCCESS = 1,
+    GET_PARAMETER_NOAPPSPECIFIC = 2,
+    SET_PARAMETER_FAILURE = GET_PARAMETER_FAILURE,
+    SET_PARAMETER_SUCCESS = GET_PARAMETER_SUCCESS
+};
+#define IS_GET_PARAMETER_FAILURE(x) ((x) <= 0 )
+#define IS_GET_PARAMETER_SUCCESS(x) ((x) > 0 )
+
+
+#define COMPANY_NAME "DynamoRIO" /* used for reg key */
+#define COMPANY_NAME_EVENTLOG "DynamoRIO" /* used for event log */
+/* used in (c) stmt in log file and in resources */
+#define COMPANY_LONG_NAME "DynamoRIO developers"
+
+
+#define PFX		"0x""%08x"
+#define PIFX	"0x""%0x"
 
 #endif

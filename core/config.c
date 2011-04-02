@@ -411,6 +411,37 @@ config_init(void)
 	config_read(&config, NULL, 0, CFG_SFX);
 }
 
+void
+config_reread(void)
+{
+	/* need to filled up */
+}
+
+int 
+get_paramenter_ex(const char * name, char *value, int maxlen, bool ignore_cache)
+{
+	const char *val;
+
+	if(ignore_cache)
+		config_reread();
+
+	val = get_config_val(name);
+	if(val != NULL)
+	{
+		strncpy(value, val, maxlen-1);
+		value[maxlen] = '\0';
+		return GET_PARAMETER_SUCCESS;
+	}
+	
+	return GET_PARAMETER_FAILURE;
+}
+
+int
+get_parameter(const char *name, char *value, int maxlen)
+{
+	return get_parameter_ex(name, value, maxlen, false);
+}
+
 #else /* !PARAMS_IN_REGISTRY around whole file */
 
 void

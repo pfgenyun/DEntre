@@ -31,4 +31,12 @@ get_config_var(const char * var);
 const char *
 get_config_val_ex(const char *var, bool *app_specific, bool *from_env);
 
+int 
+get_parameter(const char *name, char *value, int maxlen);
+
+int 
+get_parameter_ex(const char *name, char *value, int maxlen, bool ignore_cache);
+
+#define PARAM_STR(name)	name
+
 #endif

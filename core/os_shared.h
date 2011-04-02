@@ -82,4 +82,11 @@ uint query_time_seconds();
 	var VAR_IN_SECTION(CXTSW_PROTECTED_SECTION) = __VA_ARGS__;	\
 	END_DATA_SECTION()
 
+
+#define DECLARE_FREQPROT_VAR(var, ...)                        \
+    START_DATA_SECTION(FREQ_PROTECTED_SECTION, "w")           \
+    var VAR_IN_SECTION(FREQ_PROTECTED_SECTION) = __VA_ARGS__; \
+    END_DATA_SECTION() 
+
+
 #endif

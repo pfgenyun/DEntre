@@ -237,11 +237,19 @@ file_t get_thread_private_logfile(void);
 #define LOG_ALL_RELEASE    0x01e0ffff
 #define LOG_ALL            0x01ffffff
 
+
+/* thread synchronization */
+#define LOCK_FREE_STATE -1     /* allows a quick >=0 test for contention */
+
+#define CONTENTION_EVENT_NOT_CREATED ((contention_event_t)0)
+
 typedef void * contention_event_t;
 																	  
 typedef struct _mutex_t
 {
 	/* need to be filled up */
+	volatile int lock_requests;
+	contention_event_t contended_event;
 }mutex_t;
 
 
@@ -257,7 +265,268 @@ typedef struct _read_write_lock_t
 }read_write_lock_t;
 
 
-#define INIT_READWRITE_LOCK(lock)	/* need to be filled up */
+#ifdef DEADLOCK_AVOIDANCE
+#  define LOCK_RANK(lock) lock##_rank
+/* This should be the single place where all ranks are declared */
+/* Your lock should preferably take the last possible rank in this
+ * list, usually at the location marked as ADD HERE  */
+
+enum {
+    LOCK_RANK(outermost_lock), /* pseudo lock, sentinel of thread owned locks list */
+    LOCK_RANK(thread_in_DR_exclusion),  /* outermost */
+    LOCK_RANK(all_threads_synch_lock),  /* < thread_initexit_lock */
+
+    LOCK_RANK(trace_building_lock), /* < bb_building_lock, < table_rwlock */
+
+    LOCK_RANK(bb_building_lock), /* < change_linking_lock + all vm and heap locks */
+    /* decode exception -> check if should_intercept requires all_threads 
+     * FIXME: any other locks that could be interrupted by exception that
+     * could be app's fault?
+     */
+    LOCK_RANK(thread_initexit_lock), /* < all_threads_lock, < snapshot_lock */
+
+    /* FIXME: grabbed on an exception, which could happen anywhere! 
+     * possible deadlock if already held */
+    LOCK_RANK(all_threads_lock),  /* < global_alloc_lock */
+
+    LOCK_RANK(linking_lock),  /* < dynamo_areas < global_alloc_lock */
+
+#ifdef SHARING_STUDY
+    LOCK_RANK(shared_blocks_lock), /* < global_alloc_lock */
+    LOCK_RANK(shared_traces_lock), /* < global_alloc_lock */
+#endif
+
+    LOCK_RANK(synch_lock), /* per thread, < protect_info */
+
+    LOCK_RANK(protect_info), /* < cache and heap traversal locks */
+
+#if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
+    LOCK_RANK(sideline_mutex), 
+#endif
+
+    LOCK_RANK(shared_cache_flush_lock), /* < shared_cache_count_lock,
+                                           < shared_delete_lock,
+                                           < change_linking_lock */
+    LOCK_RANK(shared_delete_lock), /* < change_linking_lock < shared_vm_areas */
+    LOCK_RANK(lazy_delete_lock), /* > shared_delete_lock, < shared_cache_lock */
+
+    LOCK_RANK(shared_cache_lock), /* < dynamo_areas, < allunits_lock,
+                                   * < table_rwlock for shared cache regen/replace,
+                                   * < shared_vm_areas for cache unit flush,
+                                   * < change_linking_lock for add_to_free_list */
+
+    LOCK_RANK(change_linking_lock), /* < shared_vm_areas, < all heap locks */
+    LOCK_RANK(shared_vm_areas), /* > change_linking_lock, < executable_areas  */
+    LOCK_RANK(shared_cache_count_lock),
+    LOCK_RANK(tracedump_mutex),  /* < table_rwlock, > change_linking_lock */
+
+#if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
+    LOCK_RANK(fragment_delete_mutex),
+#endif
+
+    LOCK_RANK(emulate_write_lock), /* in future may be < emulate_write_areas */
+
+    LOCK_RANK(unit_flush_lock), /* > shared_delete_lock */
+
+    LOCK_RANK(maps_iter_buf_lock), /* < executable_areas, < module_data_lock,
+                                    * < hotp_vul_table_lock */
+
+#ifdef HOT_PATCHING_INTERFACE
+    /* This lock's rank needs to be after bb_building_lock because 
+     * build_bb_ilist() is where injection takes place, which means the 
+     * bb lock has been acquired before any hot patching related work is done 
+     * on a bb.
+     */
+    LOCK_RANK(hotp_vul_table_lock), /* > bb_building_lock, 
+                                     * < dynamo_areas, < heap_unit_lock. */
+#endif
+    LOCK_RANK(coarse_info_lock), /* < special_heap_lock, < global_alloc_lock,
+                                  * > change_linking_lock */
+    LOCK_RANK(special_units_list_lock), /* < special_heap_lock */
+    LOCK_RANK(special_heap_lock), /* > bb_building_lock, > hotp_vul_table_lock
+                                   * < dynamo_areas, < heap_unit_lock */
+    LOCK_RANK(coarse_info_incoming_lock), /* > special_heap_lock, > coarse_info_lock,
+                                           * > change_linking_lock */
+
+    /* (We don't technically need a coarse_table_rwlock separate from table_rwlock
+     * anymore but having it gives us flexibility so I'm leaving it)
+     */
+    LOCK_RANK(coarse_table_rwlock), /* < global_alloc_lock, < coarse_th_table_rwlock */
+    /* We make the th table separate (we look in it while holding master table lock) */
+    LOCK_RANK(coarse_th_table_rwlock), /* < global_alloc_lock */
+    /* We make the pc table separate (we write it while holding master table lock) */
+    LOCK_RANK(coarse_pclookup_table_rwlock), /* < global_alloc_lock */
+
+    LOCK_RANK(executable_areas), /* < dynamo_areas < global_alloc_lock
+                                  * < process_module_vector_lock (diagnostics)
+                                  */
+#ifdef RCT_IND_BRANCH
+    LOCK_RANK(rct_module_lock), /* > coarse_info_lock, > executable_areas,
+                                 * < heap allocation */
+#endif
+#ifdef RETURN_AFTER_CALL
+    LOCK_RANK(after_call_lock), /* < table_rwlock, > bb_building_lock,
+                                 * > coarse_info_lock, > executable_areas */
+#endif
+    LOCK_RANK(process_module_vector_lock), /* < snapshot_lock > all_threads_synch_lock */
+    /* For Loglevel 1 and higher, with LOG_MEMSTATS, the snapshot lock is
+     * grabbed on an exception, possible deadlock if already held FIXME */
+    LOCK_RANK(snapshot_lock),   /* < dynamo_areas */
+    LOCK_RANK(written_areas), /* > executable_areas
+                               * < dynamo_areas < global_alloc_lock */
+#ifdef PROGRAM_SHEPHERDING
+    LOCK_RANK(futureexec_areas), /* > executable_areas
+                                  * < dynamo_areas < global_alloc_lock */
+#endif
+    LOCK_RANK(pretend_writable_areas), /* < dynamo_areas < global_alloc_lock */
+    LOCK_RANK(patch_proof_areas), /* < dynamo_areas < global_alloc_lock */
+    LOCK_RANK(emulate_write_areas), /* < dynamo_areas < global_alloc_lock */
+    LOCK_RANK(IAT_areas), /* < dynamo_areas < global_alloc_lock */
+    LOCK_RANK(module_data_lock),  /* < loaded_module_areas */
+#ifdef CLIENT_INTERFACE
+    /* PR 198871: this same label is used for all client locks */
+    LOCK_RANK(dr_client_mutex), /* > module_data_lock */
+    LOCK_RANK(client_thread_count_lock), /* > dr_client_mutex */
+    LOCK_RANK(client_flush_request_lock), /* > dr_client_mutex */
+    LOCK_RANK(callback_registration_lock), /* > dr_client_mutex */
+    LOCK_RANK(client_tls_lock), /* > dr_client_mutex */
+#endif
+    LOCK_RANK(table_rwlock), /* > dr_client_mutex */
+    LOCK_RANK(loaded_module_areas),  /* < dynamo_areas < global_alloc_lock */
+    LOCK_RANK(aslr_areas), /* < dynamo_areas < global_alloc_lock */
+    LOCK_RANK(aslr_pad_areas), /* < dynamo_areas < global_alloc_lock */
+    LOCK_RANK(native_exec_areas), /* < dynamo_areas < global_alloc_lock */
+    LOCK_RANK(thread_vm_areas), /* currently never used */
+
+    LOCK_RANK(app_pc_table_rwlock), /* > after_call_lock, > rct_module_lock,
+                                     * > module_data_lock */
+
+    LOCK_RANK(dead_tables_lock), /* < heap_unit_lock */
+    LOCK_RANK(aslr_lock),
+
+#ifdef HOT_PATCHING_INTERFACE
+    LOCK_RANK(hotp_only_tramp_areas_lock),  /* > hotp_vul_table_lock,
+                                             * < global_alloc_lock */
+    LOCK_RANK(hotp_patch_point_areas_lock), /* > hotp_vul_table_lock,
+                                             * < global_alloc_lock */
+#endif
+#ifdef CALL_PROFILE
+    LOCK_RANK(profile_callers_lock), /* < global_alloc_lock */
+#endif
+    LOCK_RANK(coarse_stub_areas), /* < global_alloc_lock */
+    LOCK_RANK(moduledb_lock), /* < global heap allocation */
+    LOCK_RANK(pcache_dir_check_lock),
+    LOCK_RANK(suspend_lock),
+    LOCK_RANK(shared_lock),
+    /* ADD HERE a lock around section that may allocate memory */
+
+    /* N.B.: the order of allunits < global_alloc < heap_unit is relied on
+     * in the {fcache,heap}_low_on_memory routines.  IMPORTANT - any locks
+     * added between the allunits_lock and heap_unit_lock must have special
+     * handling in the fcache_low_on_memory() routine. 
+     */
+    LOCK_RANK(allunits_lock),  /* < global_alloc_lock */
+    LOCK_RANK(fcache_unit_areas), /* > allunits_lock, 
+                                     < dynamo_areas, < global_alloc_lock */
+    IF_LINUX_(IF_DEBUG(LOCK_RANK(elf_areas))) /* < all_memory_areas */
+    IF_LINUX_(LOCK_RANK(all_memory_areas))    /* < dynamo_areas */
+    LOCK_RANK(landing_pad_areas_lock),  /* < global_alloc_lock, < dynamo_areas */
+    LOCK_RANK(dynamo_areas),    /* < global_alloc_lock */
+    LOCK_RANK(map_intercept_pc_lock), /* < global_alloc_lock */
+    LOCK_RANK(global_alloc_lock),/* < heap_unit_lock */
+    LOCK_RANK(heap_unit_lock),   /* recursive */
+    LOCK_RANK(vmh_lock),        /* lowest level */
+    LOCK_RANK(last_deallocated_lock),
+    /*---- no one below here can be held at a memory allocation site ----*/
+
+    LOCK_RANK(tls_lock), /* if used for get_thread_private_dcontext() may
+                          * need to be even lower: as it is, only used for set */
+    LOCK_RANK(reset_pending_lock), /* > heap_unit_lock */
+
+    LOCK_RANK(initstack_mutex),  /* FIXME: NOT TESTED */
+
+    LOCK_RANK(event_lock),  /* FIXME: NOT TESTED */
+    LOCK_RANK(do_threshold_mutex),  /* FIXME: NOT TESTED */
+    LOCK_RANK(threads_killed_lock),  /* FIXME: NOT TESTED */
+    LOCK_RANK(child_lock),  /* FIXME: NOT TESTED */
+    
+#ifdef SIDELINE
+    LOCK_RANK(sideline_lock), /* FIXME: NOT TESTED */
+    LOCK_RANK(do_not_delete_lock),/* FIXME: NOT TESTED */
+    LOCK_RANK(remember_lock),/* FIXME: NOT TESTED */
+    LOCK_RANK(sideline_table_lock),/* FIXME: NOT TESTED */
+#endif
+#ifdef SIMULATE_ATTACK
+    LOCK_RANK(simulate_lock),
+#endif
+#ifdef KSTATS
+    LOCK_RANK(process_kstats_lock),
+#endif
+#ifdef N64
+    LOCK_RANK(request_region_be_heap_reachable_lock), /* > heap_unit_lock, vmh_lock
+                                                       * < report_buf_lock (for assert) */
+#endif
+    LOCK_RANK(report_buf_lock),
+    /* FIXME: if we crash while holding the all_threads_lock, snapshot_lock 
+     * (for loglevel 1+, logmask LOG_MEMSTATS), or any lock below this
+     * line (except the profile_dump_lock, and possibly others depending on
+     * options) we will deadlock
+     */
+    LOCK_RANK(memory_info_buf_lock),
+
+    LOCK_RANK(logdir_mutex),     /* recursive */
+    LOCK_RANK(diagnost_reg_mutex),
+
+    LOCK_RANK(prng_lock),
+    /* ---------------------------------------------------------- */
+    /* No new locks below this line, reserved for innermost ASSERT,
+     * SYSLOG and STATS facilities */
+    LOCK_RANK(options_lock),
+    LOCK_RANK(eventlog_mutex), /* < datasec_selfprot_lock only for hello_message */
+    LOCK_RANK(datasec_selfprot_lock),
+    LOCK_RANK(thread_stats_lock),
+    LOCK_RANK(innermost_lock), /* innermost internal lock, head of all locks list */
+};
+
+struct _thread_locks_t;
+typedef struct _thread_locks_t thread_locks_t;
+
+extern mutex_t outermost_lock;
+
+void locks_thread_init(dcontext_t *dcontext);
+void locks_thread_exit(dcontext_t *dcontext);
+uint locks_not_closed(void);
+bool thread_owns_no_locks(dcontext_t *dcontext);
+bool thread_owns_one_lock(dcontext_t *dcontext, mutex_t *lock);
+bool thread_owns_two_locks(dcontext_t *dcontext, mutex_t *lock1, mutex_t *lock2);
+bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, mutex_t *lock2);
+
+/* We need the (mutex_t) type specifier for direct initialization, 
+   but not when defining compound structures, hence NO_TYPE */
+#  define INIT_LOCK_NO_TYPE(name, rank) {LOCK_FREE_STATE,               \
+                                         CONTENTION_EVENT_NOT_CREATED,  \
+                                         name, rank,                    \
+                                         INVALID_THREAD_ID,             \
+                                         NULL, NULL,                    \
+                                         0, 0, 0, 0, 0,                 \
+                                         NULL, NULL}
+#else
+/* Ignore the arguments */
+#  define INIT_LOCK_NO_TYPE(name, rank) {LOCK_FREE_STATE, CONTENTION_EVENT_NOT_CREATED}
+#endif /* DEADLOCK_AVOIDANCE */
+
+
+#define STRUCTURE_TYPE(x)
+
+#define INIT_READWRITE_LOCK(lock) STRUCTURE_TYPE(read_write_lock_t)		\
+	{																	\
+		INIT_LOCK_NO_TYPE(                                              \
+		#lock "(readwrite)" "@" __FILE__ ":" STRINGIFY(__LINE__) ,       \
+		LOCK_RANK(lock)),                                                \
+		0, INVALID_THREAD_ID,                                            \
+		0,                                                               \
+		CONTENTION_EVENT_NOT_CREATED, CONTENTION_EVENT_NOT_CREATED       \
+   }
 
 void write_lock(read_write_lock_t *rw);
 void write_unlock(read_write_lock_t *rw);

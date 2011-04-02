@@ -42,6 +42,7 @@ ALL:
 	$(CC) ${C_FLAG} ${C_FLAG_PRELOAD} ${D_FLAG} ${TOOL_FLAG} config.c                 -c -o  ${OBJDIR}config.o;			\
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} utils.c                  -c -o  ${OBJDIR}utils.o;			\
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} dynamo.c                 -c -o  ${OBJDIR}dynamo.o;			\
+	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} options.c                -c -o  ${OBJDIR}options.o;			\
 															\
 	cd ${OBJDIR};											 \
 	${CC} ${C_FLAG} ${LINK_FLAG} -nostartfiles  -o  libpreload.so $(OBJ_PRELOAD);		\

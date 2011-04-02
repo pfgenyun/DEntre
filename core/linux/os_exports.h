@@ -23,6 +23,11 @@
 #include <sys/types.h>
 #include "../os_shared.h"
 
+
+/* the VAR_IN_SECTION macro change where each var goes */
+#define START_DATA_SECTION(name, wx) /* nothing */
+#define END_DATA_SECTION() /* nothing */
+
 #define VAR_IN_SECTION(name)    __attribute__ ((section (name)))
 
 /* We do NOT want our libc routines wrapped by pthreads, so we use

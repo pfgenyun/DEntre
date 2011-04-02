@@ -25,6 +25,8 @@
 #include "utils.h"
 #include "lib/de_stats.h"
 
+#define INVALID_THREAD_ID  0
+
 #define SUCCESS	(1)
 #define FAILURE	(0)
 
@@ -36,5 +38,6 @@
 
 /* global instance of statistics struct */
 extern de_statistics_t *stats;
+
 
 #endif
