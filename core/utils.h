@@ -522,6 +522,13 @@ bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, 
 
 #define STRUCTURE_TYPE(x)
 
+#define ASSIGN_INIT_LOCK_FREE(var, lock) do {                           \
+     mutex_t initializer_##lock = STRUCTURE_TYPE(mutex_t) INIT_LOCK_NO_TYPE(\
+            #lock "(mutex)" "@" __FILE__ ":" STRINGIFY(__LINE__),       \
+                                                 LOCK_RANK(lock));      \
+     var = initializer_##lock;                                          \
+   } while (0)
+
 #define INIT_READWRITE_LOCK(lock) STRUCTURE_TYPE(read_write_lock_t)		\
 	{																	\
 		INIT_LOCK_NO_TYPE(                                              \

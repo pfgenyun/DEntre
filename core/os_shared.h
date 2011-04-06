@@ -70,6 +70,90 @@ const char *get_application_short_name(void);
 uint query_time_seconds();
 
 
+/***************************************************************************
+ * SELF_PROTECTION
+ */
+
+/* Values for protect_mask to specify what is write-protected from malicious or
+ * inadvertent modification by the application.
+ * DATA_CXTSW and GLOBAL are done on each context switch
+ * the rest are on-demand:
+ * DATASEGMENT, DATA_FREQ, and GENCODE only on the rare occasions when we write to them
+ * CACHE only when emitting or {,un}linking
+ * LOCAL only on path in DR that needs to write to local
+ */
+enum {
+    /* Options specifying protection of our DR dll data sections: */
+    /* .data == variables written only at init or exit time or rarely in between */
+    SELFPROT_DATA_RARE   = 0x001,
+    /* .fspdata == frequently written enough that we separate from .data.
+     * FIXME case 8073: currently these are unprotected on every cxt switch
+     */
+    SELFPROT_DATA_FREQ   = 0x002,
+    /* .cspdata == so frequently written that to protect them requires unprotecting
+     * every context switch.
+     */
+    SELFPROT_DATA_CXTSW  = 0x004,
+
+    /* if GLOBAL && !DCONTEXT, entire dcontext is unprotected, rest of
+     *   global allocs are protected;
+     * if GLOBAL && DCONTEXT, cache-written fields of dcontext are unprotected,
+     *   rest are protected;
+     * if !GLOBAL, DCONTEXT should not be used
+     */
+    SELFPROT_GLOBAL      = 0x008,
+    SELFPROT_DCONTEXT    = 0x010, /* means we split out unprotected_context_t -- 
+                                   * no actual protection unless SELFPROT_GLOBAL */
+    SELFPROT_LOCAL       = 0x020,
+    SELFPROT_CACHE       = 0x040, /* FIXME: thread-safe NYI when doing all units */
+    SELFPROT_STACK       = 0x080, /* essentially always on with clean-dstack dispatch()
+                                   * design, leaving as a bit in case we do more later */
+    /* protect our generated thread-shared and thread-private code */
+    SELFPROT_GENCODE     = 0x100,
+    /* FIXME: TEB page on Win32 
+     * Other global structs, like thread-local callbacks on Win32?
+     * PEB page?
+     */
+    /* options that require action on every context switch
+     * FIXME: global heap used to be much rarer before shared
+     * fragments, only containing "important" data, which is why we
+     * un-protected on every context switch.  We should re-think that
+     * now that most things are shared.
+     */
+    SELFPROT_ON_CXT_SWITCH = (SELFPROT_DATA_CXTSW | SELFPROT_GLOBAL
+                              /* FIXME case 8073: this is only temporary until
+                               * we finish implementing .fspdata unprots */
+                              | SELFPROT_DATA_FREQ),
+    SELFPROT_ANY_DATA_SECTION = (SELFPROT_DATA_RARE | SELFPROT_DATA_FREQ |
+                                 SELFPROT_DATA_CXTSW),
+};
+
+enum
+{
+	DATASEC_NEVER_PROC = 0,
+	DATASEC_RARELY_PROC,
+	DATASEC_FREQ_PROC,
+	DATASEC_CXTSW_PROC,
+	DATASEC_NUM,
+};
+
+extern const uint DATASEC_SELFPROC[];
+extern const char * const DATASEC_NAMES[];
+
+extern const uint datasec_writable_neverprot;
+extern uint datasec_writable_rareprot;
+extern uint datasec_writable_freqprot;
+extern uint datasec_writable_cxtswprot;
+
+
+/* this is a uint not a bool */
+#define DATASEC_WRITABLE(which) \
+    ((which) == DATASEC_RARELY_PROT ? datasec_writable_rareprot : \
+     ((which) == DATASEC_CXTSW_PROT ? datasec_writable_cxtswprot : \
+      ((which) == DATASEC_FREQ_PROT ? datasec_writable_freqprot : \
+       datasec_writable_neverprot)))
+
+
 /* these must be plain literals since we need these in pragmas/attributes */
 #define NEVER_PROTECTED_SECTION  ".nspdata"
 #define RARELY_PROTECTED_SECTION ".data"
