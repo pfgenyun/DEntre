@@ -356,4 +356,7 @@ enum {
 #define PFX		"0x""%08x"
 #define PIFX	"0x""%0x"
 
+/* need to be filled up */
+#define DENTRE_OPTION(opt)	dentre_options.opt
+
 #endif

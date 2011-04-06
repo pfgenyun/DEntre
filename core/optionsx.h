@@ -469,7 +469,6 @@
                        SYSLOG_NONE), SYSLOG_NONE),
                    "show messages onto stderr")
 
-#ifdef LINUX
     OPTION_DEFAULT(bool, open_tcsh_fds, true, "at startup open several file descriptors "
                    "to avoid conflicts with hardcoded tcsh assumptions.")
     /* Xref PR 258731 - options to duplicate stdout/stderr for our or client logging if
@@ -487,7 +486,6 @@
 
     /* PR 304708: we intercept all signals for a better client interface */
     OPTION_DEFAULT(bool, intercept_all_signals, true, "intercept all signals")
-#endif /* LINUX */
 
     /* Disable diagnostics by default. -security turns it on */
     DYNAMIC_OPTION_DEFAULT(bool, diagnostics, false, "enable diagnostic reporting")

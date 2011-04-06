@@ -24,6 +24,8 @@
 
 #include <string.h>
 #include "globals.h"
+#include "utils.h"
+#include "options.h"	/* dentre_options */
 
 void 
 getnamefrompid(int pid, char *name, uint maxlen)
@@ -53,12 +55,47 @@ getnamefrompid(int pid, char *name, uint maxlen)
 }
 
 
-void write_lock(read_write_lock_t *rw)
+void 
+write_lock(read_write_lock_t *rw)
 {
 	/* need to be filled up */
 }
 
-void write_unlock(read_write_lock_t *rw)
+void 
+write_unlock(read_write_lock_t *rw)
 {
 	/* need to be filled up */
 }
+
+
+static uint spinlock_count = 0;
+DECLARE_FREQPROT_VAR(static uint random_seed, 1234);
+DEBUG_DECLARE(static uint initial_random_seed);
+
+void 
+utils_init()
+{
+	spinlock_count = (get_num_processors() - 1) * DENTRE_OPTION(spinlock_count_on_SMP);
+
+	random_seed = (DENTRE_OPTION(prng_seed) == 0)?
+		os_randomn_seed() : DENTRE_OPTION(prng_seed);
+
+	DODEBUG(initial_random_seed = random_seed);
+
+	ASSERT(sizeof(spin_mutex_t) = sizeof(mutex_t));
+	ASSERT(sizeof(uint64) = 8);
+	ASSERT(sizeof(uint32) = 4);
+	ASSERT(sizeof(uint) = 4);
+	ASSERT(sizeof(reg_t) = sizeof(* void));
+
+	if(DENTRE_OPTION(open_tcsh_fds))
+	{
+		file_t foo = 0;
+		while(foo <=5 )
+		{
+			foo = os_open("/dev/null", OS_OPEN_WRITE|OS_OPEN_APPEND);
+			ASSERT(foo != INVALID_FILE);
+		}
+	}
+}
+

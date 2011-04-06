@@ -252,6 +252,10 @@ typedef struct _mutex_t
 	contention_event_t contended_event;
 }mutex_t;
 
+typedef struct _spin_mutex_t
+{
+	mutex_t lock;
+}spin_lock_t;
 
 typedef struct _read_write_lock_t
 {

@@ -23,6 +23,7 @@
 #include <fcntl.h>
 #include <errno.h>		/* ENOENT */
 //#include <unistd.h>
+#include <sys/sysinfo.h>	/* for get_nprocs_num  */
 
 #include "../globals.h"
 #include "syscall.h"
@@ -249,4 +250,17 @@ uint
 query_time_seconds()
 {
 	return (uint) dentre_syscall(SYS_time, 1, NULL);
+}
+
+int
+get_num_processors()
+{
+	static uint num_cpu = 0;
+	if(!num_cpu)
+	{
+		num_cpu = get_nprocs_conf();
+		ASSERT(num_cpu);
+	}
+
+	return num_cpu;
 }

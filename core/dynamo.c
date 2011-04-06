@@ -78,6 +78,7 @@ dentre_app_init(void)
 
 	config_init();
 	options_init();
+	utils_init();
 
 	return SUCCESS;
 

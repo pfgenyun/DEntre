@@ -100,6 +100,9 @@ typedef struct _options_t {
 #undef OPTION_COMMAND_INTERNAL
 
 
+extern char option_string[];
+extern options_t dentre_options;
+extern read_write_lock_t options_lock;
 
 int 
 options_init(void);
