@@ -24,6 +24,7 @@
 #include "lib/de_stats.h"
 #include "config.h"
 #include "options.h"
+#include "mips/instrument.h"
 
 /* global thread-shared var */
 bool dentre_initialized = false;
@@ -79,6 +80,49 @@ statistics_pre_init(void)
 }
 
 
+static void
+statistics_init(void)
+{
+    /* should have called statistics_pre_init() first */
+    ASSERT(stats == &nonshared_stats);
+    ASSERT(stats->num_stats == 0);
+#ifndef DEBUG
+    if (!DENTRE_OPTION(global_rstats)) {
+        /* references to stat values should return 0 (static var) */
+        return;
+    }
+#endif
+    stats->num_stats = 0
+#ifdef DEBUG
+# define STATS_DEF(desc, name) +1
+#else
+# define RSTATS_DEF(desc, name) +1
+#endif
+# include "lib/statsx.h"
+#undef STATS_DEF
+#undef RSTATS_DEF
+        ;
+    /* We inline the stat description to make it easy for external processes
+     * to view our stats: they don't have to chase pointers, and we could put
+     * this in shared memory easily.  However, we do waste some memory, but
+     * not much in release build.
+     */
+#ifdef DEBUG
+# define STATS_DEF(desc, statname) \
+    strncpy(stats->statname##_pair.name, desc, \
+            BUFFER_SIZE_ELEMENTS(stats->statname##_pair.name)); \
+    NULL_TERMINATE_BUFFER(stats->statname##_pair.name);
+#else
+# define RSTATS_DEF(desc, statname) \
+    strncpy(stats->statname##_pair.name, desc, \
+            BUFFER_SIZE_ELEMENTS(stats->statname##_pair.name)); \
+    NULL_TERMINATE_BUFFER(stats->statname##_pair.name);
+#endif
+# include "lib/statsx.h"
+#undef STATS_DEF
+#undef RSTATS_DEF
+}
+
 DENTRE_EXPORT int
 dentre_app_init(void)
 {
@@ -111,6 +155,20 @@ dentre_app_init(void)
 	options_init();
 	utils_init();
 	data_section_init();
+
+#ifdef DEBUG
+	/* need to be filled up */
+#endif
+
+#ifndef DEBUG
+	statistics_pre_init();
+#endif
+
+	statistics_init();
+
+#ifdef CLIENT_INTERFACE
+	instrument_load_client_libs();
+#endif
 
 	return SUCCESS;
 

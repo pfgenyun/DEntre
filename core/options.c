@@ -25,6 +25,23 @@
 #include "config.h"
 #include "options.h"
 
+
+#ifndef EXPOSE_INTERNAL_OPTIONS
+/* default values for internal options are kept in a separate struct */
+#  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, statement, description, flag, pcache) default_value, 
+#  define OPTION_COMMAND(type, name, default_value, command_line_option, \
+                         statement, description, flag, pcache) /* nothing */
+/* read only source for default internal option values and names
+ * no lock needed since never written
+ */
+const internal_options_t default_internal_options = {
+#  include "optionsx.h"
+};
+#undef OPTION_COMMAND_INTERNAL
+#undef OPTION_COMMAND
+#endif
+
+
 #ifdef EXPOSE_INTERNAL_OPTIONS
 #  define OPTION_COMMAND_INTERNAL OPTION_COMMAND
 #else 

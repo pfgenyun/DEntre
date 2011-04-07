@@ -39,6 +39,12 @@
 # define SYSNUM_FSTAT SYS_fstat64
 #endif
 
+
+static int
+get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/,
+                   char *fullpath/*OPTIONAL OUT*/, size_t path_size);
+
+
 process_id_t
 get_process_id()
 {
@@ -102,6 +108,49 @@ write_syscall(int fd, const void *buf, size_t nbytes)
 {
     return dentre_syscall(SYS_write, 3, fd, buf, nbytes);
 }
+
+
+#if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
+shlib_handle_t 
+load_shared_library(char *name)
+{
+    return dlopen(name, RTLD_LAZY);
+}
+#endif
+
+#if defined(CLIENT_INTERFACE)
+shlib_routine_ptr_t
+lookup_library_routine(shlib_handle_t lib, char *name)
+{
+    return dlsym(lib, name);
+}
+
+void
+unload_shared_library(shlib_handle_t lib)
+{
+    if (!DYNAMO_OPTION(avoid_dlclose))
+        dlclose(lib);
+}
+
+void
+shared_library_error(char *buf, int maxlen)
+{
+    char *err = dlerror();
+    strncpy(buf, err, maxlen-1);
+    buf[maxlen-1] = '\0'; /* strncpy won't put on trailing null if maxes out */
+}
+
+/* addr is any pointer known to lie within the library */
+bool
+shared_library_bounds(IN shlib_handle_t lib, IN byte *addr,
+                      OUT byte **start, OUT byte **end)
+{
+    /* PR 366195: dlopen() handle truly is opaque, so we have to use addr */
+    ASSERT(start != NULL && end != NULL);
+    *start = addr;
+    return (get_library_bounds(NULL, start, end, NULL, 0) > 0);
+}
+#endif /* defined(CLIENT_INTERFACE) */
 
 
 /* FIXME - not available in 2.0 or earlier kernels, not really an issue since no one
@@ -264,3 +313,13 @@ get_num_processors()
 
 	return num_cpu;
 }
+
+
+
+static int
+get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/,
+                   char *fullpath/*OPTIONAL OUT*/, size_t path_size)
+{
+	/* need to filled up */
+}
+

@@ -173,4 +173,25 @@ extern uint datasec_writable_cxtswprot;
     END_DATA_SECTION() 
 
 
+#if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
+/* Note that this is NOT identical to module_handle_t: on Linux this
+ * is a pointer to a loader data structure and NOT the base address
+ * (xref PR 366195).
+ */
+typedef void * shlib_handle_t;
+typedef void (*shlib_routine_ptr_t)();
+
+shlib_handle_t load_shared_library(char *name);
+#endif
+
+
+#if defined(CLIENT_INTERFACE)
+shlib_routine_ptr_t lookup_library_routine(shlib_handle_t lib, char *name);
+void unload_shared_library(shlib_handle_t lib);
+void shared_library_error(char *buf, int maxlen);
+/* addr is any pointer known to lie within the library */
+bool shared_library_bounds(IN shlib_handle_t lib, IN byte *addr,
+                           OUT byte **start, OUT byte **end);
+#endif
+
 #endif

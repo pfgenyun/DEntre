@@ -25,6 +25,7 @@
 
 #define MAXINUM_PATH	260
 
+#define MAX_CLIENT_LIBS 16
 
 #ifndef DR_DO_NOT_DEFINE_uint
 typedef unsigned int uint;
@@ -87,6 +88,7 @@ typedef int64 stats_int_t;
 typedef int stats_int_t;
 #endif
 
+typedef uint client_id_t;
 
 #ifndef NULL
 #  define NULL (0)
@@ -99,6 +101,18 @@ typedef int		bool;
 #define true	(1)
 #define false	(0)
 #endif
+
+
+#ifndef IN
+# define IN /* marks input param */
+#endif
+#ifndef OUT
+# define OUT /* marks output param */
+#endif
+#ifndef INOUT
+# define INOUT /* marks input+output param */
+#endif
+
 
 typedef int file_t;
 /** The sentinel value for an invalid file_t. */
@@ -358,5 +372,27 @@ enum {
 
 /* need to be filled up */
 #define DENTRE_OPTION(opt)	dentre_options.opt
+
+
+#ifdef EXPOSE_INTERNAL_OPTIONS
+  /* Use only for experimental non-release options */
+  /* Internal option value can be set on the command line only in INTERNAL builds */
+  /* We should remove the ASSERT if we convert an internal option into non-internal */
+# define INTERNAL_OPTION(opt) ((IS_OPTION_INTERNAL(opt)) ? (DENTRE_OPTION(opt)) : \
+                               (ASSERT_MESSAGE("non-internal option argument "#opt, false), \
+                                DENTRE_OPTION(opt)))
+#else
+  /* Use only for experimental non-release options, 
+     default value is assumed and command line options are ignored */
+  /* We could use IS_OPTION_INTERNAL(opt) ? to determine whether an option is defined as INTERNAL in
+     optionsx.h and have that be the only place to modify to transition between internal and external options.
+     The compiler should be able to eliminate the inappropriate part of the constant expression,
+     if the specific option is no longer defined as internal so we don't have to modify the code.
+     Still I'd rather have explicit uses of DYNAMO_OPTION or INTERNAL_OPTION for now.
+  */
+# define INTERNAL_OPTION(opt) DEFAULT_INTERNAL_OPTION_VALUE(opt)
+#endif /* EXPOSE_INTERNAL_OPTIONS */
+
+
 
 #endif

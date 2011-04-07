@@ -80,6 +80,16 @@
 #define ASSERT_NOT_IMPLEMENTED(x) ASSERT_MESSAGE("Not implemented", x)
 
 
+#ifdef CLIENT_INTERFACE
+# ifdef DEBUG
+#  define CLIENT_ASSERT(x, msg) apicheck(x, msg)
+# else
+#  define CLIENT_ASSERT(x, msg) /* PR 215261: nothing in release builds */
+# endif
+#else
+# define CLIENT_ASSERT(x, msg) ASSERT_MESSAGE(msg, x)
+#endif
+
 
 #ifdef DEBUG
 # define LOG(file, mask, level, ...) do {        \
@@ -505,6 +515,7 @@ bool thread_owns_one_lock(dcontext_t *dcontext, mutex_t *lock);
 bool thread_owns_two_locks(dcontext_t *dcontext, mutex_t *lock1, mutex_t *lock2);
 bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, mutex_t *lock2);
 
+
 /* We need the (mutex_t) type specifier for direct initialization, 
    but not when defining compound structures, hence NO_TYPE */
 #  define INIT_LOCK_NO_TYPE(name, rank) {LOCK_FREE_STATE,               \
@@ -541,6 +552,9 @@ bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, 
 
 void write_lock(read_write_lock_t *rw);
 void write_unlock(read_write_lock_t *rw);
+
+void read_lock(read_write_lock_t *rw);
+void read_unlock(read_write_lock_t *rw);
 
 
 

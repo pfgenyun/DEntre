@@ -54,6 +54,18 @@ getnamefrompid(int pid, char *name, uint maxlen)
     close_syscall(fd);
 }
 
+void
+read_lock(read_write_lock_t *rw)
+{
+	/* need to be filled up */
+}
+
+void
+read_unlock(read_write_lock_t *rw)
+{
+	/* need to be filled up */
+}
+
 
 void 
 write_lock(read_write_lock_t *rw)
@@ -98,4 +110,5 @@ utils_init()
 		}
 	}
 }
+
 

@@ -290,6 +290,7 @@
 #else
 #endif
 
+	/* maybe not a good choice */
 #ifdef EXPOSE_INTERNAL_OPTIONS
 # ifdef PROFILE_RDTSC
     OPTION_NAME_INTERNAL(bool, profile_times, "prof_times", "profiling via measuring time"))
@@ -299,6 +300,7 @@
     OPTION_NAME_INTERNAL(bool, profile_counts, "prof_counts", "profiling via counters")
 # endif
 
+	/* maybe not a good choice */
 # ifdef CLIENT_INTERFACE
     /* FIXME (xref PR 215082): make these external now that our product is our API? */
     OPTION_DEFAULT_INTERNAL(liststring_t, client_lib, EMPTY_STRING, 
