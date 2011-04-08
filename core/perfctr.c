@@ -17,9 +17,12 @@
  * and/or other materials provided with the distribution.
  */
 
-#ifndef _INSTRUMENT_H_
-#define _INSTRUMENT_H_	1
+#ifdef PAPI
 
-void instrument_load_client_libs(void);
+void
+hardware_perfctr_init(void)
+{
+	/* need to filled up */
+}
 
 #endif

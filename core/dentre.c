@@ -25,6 +25,10 @@
 #include "config.h"
 #include "options.h"
 #include "mips/instrument.h"
+#ifdef PAPI
+#	include "perfctr.h"
+#endif
+#include "heap.h"
 
 /* global thread-shared var */
 bool dentre_initialized = false;
@@ -158,6 +162,10 @@ dentre_app_init(void)
 
 #ifdef DEBUG
 	/* need to be filled up */
+#	ifdef PAPI
+	/* need to be filled up */
+	hardware_perfctr_init();
+#	endif
 #endif
 
 #ifndef DEBUG
@@ -170,6 +178,8 @@ dentre_app_init(void)
 	instrument_load_client_libs();
 #endif
 
+	vmm_heap_init();
+
 	return SUCCESS;
 
 }
@@ -177,7 +187,7 @@ dentre_app_init(void)
 static void
 get_data_section_bounds(uint sec)
 {
-	/* need to be filled up now */
+	/* need to be filled up */
 }
 
 static void 

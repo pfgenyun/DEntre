@@ -39,5 +39,13 @@
 /* global instance of statistics struct */
 extern de_statistics_t *stats;
 
+struct _dcontext_t;
+typedef struct _dcontext_t dcontext_t;
+
+struct _dcontext_t
+{
+	/* need to be filled up */
+};
+
 
 #endif

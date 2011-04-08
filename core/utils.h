@@ -557,5 +557,20 @@ void read_lock(read_write_lock_t *rw);
 void read_unlock(read_write_lock_t *rw);
 
 
+/* Current implementation uses integers representing 32 bits */
+typedef uint bitmap_element_t;
+typedef bitmap_element_t bitmap_t[];
+
+/* Note that we have some bitmap operations in linux/signal.c for
+ *  kernel version of sigset_t as well as in
+ *  win32/ntdll.c:tls_{alloc,free} which could use some of these
+ *  facilities, but for now we leave those as more OS specific
+ */
+
+#define BITMAP_DENSITY   32
+#define BITMAP_MASK(i)   (1 << ((i) % BITMAP_DENSITY))
+#define BITMAP_INDEX(i)  ((i) / BITMAP_DENSITY)
+#define BITMAP_NOT_FOUND ((uint)-1)
+
 
 #endif
