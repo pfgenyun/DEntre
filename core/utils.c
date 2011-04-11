@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <string.h>
 
 #include <string.h>
 #include "globals.h"
@@ -111,4 +112,20 @@ utils_init()
 	}
 }
 
+void
+bitmap_initialize_free(bitmap_t b, uint bitmap_size)
+{
+	memset(b, 0xff, BITMAP_INDEX(bitmap_size) * sizeof(bitmap_element_t));
+}
 
+bool 
+bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect)
+{
+	/* need to be filled up */
+}
+
+size_t
+get_random_offset(size_t max_offset)
+{
+	/* need to be filled up */
+}

@@ -33,6 +33,9 @@
 /* global thread-shared var */
 bool dentre_initialized = false;
 
+bool dentre_exited = false;
+
+
 bool post_exec = false;
 static uint starttime = 0;
 

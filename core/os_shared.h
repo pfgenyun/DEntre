@@ -21,6 +21,18 @@
 #define _OS_SHARED_H_	1
 
 
+enum {
+    HEAP_ERROR_SUCCESS = 0,
+    /* os_heap_reserve_in_region() only, couldn't find a place to reserve within region */
+    HEAP_ERROR_CANT_RESERVE_IN_REGION = 1,
+    /* os_heap_reserve() only, Linux only, mmap failed to reserve at preferred address */ 
+    HEAP_ERROR_NOT_AT_PREFERRED = 2,
+};
+typedef uint heap_error_code_t;
+
+void * os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code, 
+		bool executable);
+
 /* file operations */
 /* defaults to read only access, if write is not set ignores others */
 #define OS_OPEN_READ        0x01

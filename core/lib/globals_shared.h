@@ -222,6 +222,23 @@ enum {
 # define IF_NOT_X64(x) x
 # define _IF_NOT_X64(x) , x
 #endif
+
+#ifdef N64
+# define IF_N64(x) x
+# define IF_N64_ELSE(x, y) x
+# define IF_N64_(x) x,
+# define _IF_N64(x) , x
+# define IF_NOT_N64(x)
+# define _IF_NOT_N64(x)
+#else
+# define IF_N64(x)
+# define IF_N64_ELSE(x, y) y
+# define IF_N64_(x)
+# define _IF_N64(x)
+# define IF_NOT_N64(x) x
+# define _IF_NOT_N64(x) , x
+#endif
+
 /* DR_API EXPORT END */
 
 # define IF_WINDOWS(x)

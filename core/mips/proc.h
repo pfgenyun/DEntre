@@ -17,38 +17,15 @@
  * and/or other materials provided with the distribution.
  */
 
-#ifndef _GLOBALS_H_
-#define _GLOBALS_H_	1
 
-#include "lib/globals_shared.h"
-#include "linux/os_exports.h"
-#include "utils.h"
-#include "lib/de_stats.h"
-
-#define INVALID_THREAD_ID  0
-
-#define SUCCESS	(1)
-#define FAILURE	(0)
-
-#ifdef USE_VISIBILITY_ATTRIBUTES
-#	define DENTRE_EXPORT	__attribute__ ((visibility ("protected")))
-#else
-#define DENTRE_EXPORT	
-#endif
+/*
+ * proc.h - processor implementation specific interfaces
+ */
 
 
-extern bool dentre_exited;
+#ifndef _PROC_H_
+#define _PROC_H_	1
 
-/* global instance of statistics struct */
-extern de_statistics_t *stats;
-
-struct _dcontext_t;
-typedef struct _dcontext_t dcontext_t;
-
-struct _dcontext_t
-{
-	/* need to be filled up */
-};
-
+#define PAGE_SIZE	(4 * 1024)
 
 #endif

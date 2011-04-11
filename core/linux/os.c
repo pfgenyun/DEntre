@@ -22,12 +22,14 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>		/* ENOENT */
-//#include <unistd.h>
 #include <sys/sysinfo.h>	/* for get_nprocs_num  */
+#include <unistd.h>
+#include <sys/mman.h>
 
 #include "../globals.h"
 #include "syscall.h"
 #include "../utils.h"
+#include "../mips/proc.h"
 
 
 /* must be after X64 is defined */
@@ -323,3 +325,108 @@ get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/
 	/* need to filled up */
 }
 
+
+
+static bool
+mmap_syscall_succeeded(byte *retval)
+{
+    ptr_int_t result = (ptr_int_t) retval;
+    /* libc interprets up to -PAGE_SIZE as an error, and you never know if
+     * some weird errno will be used by say vmkernel (xref PR 365331) 
+     */
+    bool fail = (result < 0 && result >= -PAGE_SIZE);
+    ASSERT_CURIOSITY(!fail ||
+                     IF_VMX86(result == -ENOENT ||)
+                     IF_VMX86(result == -ENOSPC ||)
+                     result == -EBADF   ||
+                     result == -EACCES  ||
+                     result == -EINVAL  ||
+                     result == -ETXTBSY ||
+                     result == -EAGAIN  ||
+                     result == -ENOMEM  ||
+                     result == -ENODEV  ||
+                     result == -EFAULT);
+    return !fail;
+}
+
+static inline byte *
+mmap_syscall(byte * addr, size_t len, ulong prot, ulong flag, ulong fd, ulong pgoff)
+{
+	return (byte *) dentre_syscall(IF_N64_ELSE(SYS_mmap, SYS_mmap2), 6,
+									addr, len, prot, flag, fd, pgoff);
+}
+
+static inline long
+munmap_syscall(byte *addr, size_t len)
+{
+	dentre_syscall(SYS_munmap, 2, addr, len);
+}
+
+void 
+os_heap_free(void *p, size_t size, heap_error_code_t *error_code)
+{
+	long rc;
+	ASSERT(error_code != NULL);
+
+	if(!dentre_exited)
+	{
+		LOG(GLOBAL, LOG_HEAP, 4, "os_heap_free: %d bytes @ "PFX"\n", size, p);
+	}
+
+	rc = munmap_syscall(p, size);
+
+	if(rc != 0)
+	{
+		*error_code = -rc;
+	}
+	else
+	{
+		*error_code = HEAP_ERROR_SUCCESS;
+	}
+
+	ASSERT(rc == 0);
+}
+
+/* reserve virtual address space without committing swap space for it, 
+   and of course no physical pages since it will never be touched */
+/* to be transparent, we do not use sbrk, and are
+ * instead using mmap, and asserting that all os_heap requests are for
+ * reasonably large pieces of memory */
+void *
+os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code, bool executable)
+{
+	void *p;
+	uint prot = PROT_NONE;
+
+	ASSERT(size > 0 && ALIGNED(size, PAGE_SIZE));
+	ASSERT(error_code != NULL);
+
+	p = mmap_syscall(preferred, size, prot, MAP_PRIVATE|MAP_ANONYMOUS 
+			IF_N64(| (DENTRE_OPTION(heap_in_lower_4GB) ? MAP_32BIT: 0)), -1, 0);
+
+	if(!mmap_syscall_succeeded(p))
+	{
+		*error_code = -(heap_error_code_t)(ptr_int_t)p;
+        LOG(GLOBAL, LOG_HEAP, 4,
+            "os_heap_reserve %d bytes failed "PFX"\n", size, p);
+        return NULL;
+	}
+	else if(preferred = NULL && p != preferred)
+	{
+		heap_error_code_t dummy;
+		*error_code = HEAP_ERROR_NOT_AT_PREFERRED;
+		os_heap_free(p, size, &dummy);
+		ASSERT(dummy == HEAP_ERROR_SUCCESS);
+        LOG(GLOBAL, LOG_HEAP, 4,
+            "os_heap_reserve %d bytes at "PFX" not preferred "PFX"\n",
+            size, preferred, p);
+        return NULL;
+	}
+	else
+	{
+		*error_code = HEAP_ERROR_SUCCESS;
+	}
+    LOG(GLOBAL, LOG_HEAP, 2, "os_heap_reserve: %d bytes @ "PFX"\n", size, p);
+
+	return p;
+}

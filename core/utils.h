@@ -91,6 +91,39 @@
 #endif
 
 
+#define CHECK_TRUNCATE_TYPE_byte(val) ((val) >= 0 && (val) <= UCHAR_MAX)
+#define CHECK_TRUNCATE_TYPE_sbyte(val) ((val) <= SCHAR_MAX && ((int64)(val)) >= SCHAR_MIN)
+#define CHECK_TRUNCATE_TYPE_ushort(val) ((val) >= 0 && (val) <= USHRT_MAX)
+#define CHECK_TRUNCATE_TYPE_short(val) ((val) <= SHRT_MAX && ((int64)(val)) >= SHRT_MIN)
+#define CHECK_TRUNCATE_TYPE_uint(val) ((val) >= 0 && (val) <= UINT_MAX)
+#ifdef LINUX
+/* We can't do the proper int check on Linux because it generates a warning if val has
+ * type uint that I can't seem to cast around and is impossible to ignore -
+ * "comparison is always true due to limited range of data type".
+ * See http://gcc.gnu.org/ml/gcc/2006-01/msg00784.html and note that the suggested
+ * workaround option doesn't exist as far as I can tell. We are potentially in trouble
+ * if val has type int64, is negative, and too big to fit in an int. */
+# define CHECK_TRUNCATE_TYPE_int(val) ((val) <= INT_MAX)
+#else
+# define CHECK_TRUNCATE_TYPE_int(val) ((val) <= INT_MAX && ((int64)(val)) >= INT_MIN)
+#endif
+#ifdef X64
+# define CHECK_TRUNCATE_TYPE_size_t(val) ((val) >= 0)
+/* avoid gcc warning: always true anyway since stats_int_t == int64 */
+# define CHECK_TRUNCATE_TYPE_stats_int_t(val) (true)
+#else
+# define CHECK_TRUNCATE_TYPE_size_t CHECK_TRUNCATE_TYPE_uint
+# define CHECK_TRUNCATE_TYPE_stats_int_t CHECK_TRUNCATE_TYPE_int
+#endif
+
+/* FIXME: too bad typeof is a GCC only extension - so need to pass both var and type */
+
+/* var = (type) val; should always be preceded by a call to ASSERT_TRUNCATE  */
+/* note that it is also OK to use ASSERT_TRUNCATE(type, type, val) for return values */
+#define ASSERT_TRUNCATE(var, type, val) ASSERT(sizeof(type) == sizeof(var) && \
+                                               CHECK_TRUNCATE_TYPE_##type(val) && \
+                                               "truncating "#var" to "#type)
+
 #ifdef DEBUG
 # define LOG(file, mask, level, ...) do {        \
   if (stats != NULL &&                           \
@@ -571,6 +604,18 @@ typedef bitmap_element_t bitmap_t[];
 #define BITMAP_MASK(i)   (1 << ((i) % BITMAP_DENSITY))
 #define BITMAP_INDEX(i)  ((i) / BITMAP_DENSITY)
 #define BITMAP_NOT_FOUND ((uint)-1)
+
+void bitmap_initialize_free(bitmap_t b, uint bitmap_size);
+bool bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect);
+
+
+size_t get_random_offset(size_t max_offset);
+
+
+/* alignment helpers, alignment must be power of 2 */
+#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
+#define ALIGN_FORWARD(x, alignment) \
+    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
 
 
 #endif

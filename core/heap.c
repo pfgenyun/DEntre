@@ -119,7 +119,7 @@ typedef struct _vm_heap_t
 	mutex_t lock;
 	uint num_free_blocks;
 
-	bitmap_element_t block[BITMAP_INDEX(MAX_VMM_HEAP_UNIT_SIZE/VMM_BLOCK_SIZE)];
+	bitmap_element_t blocks[BITMAP_INDEX(MAX_VMM_HEAP_UNIT_SIZE/VMM_BLOCK_SIZE)];
 
 }vm_heap_t;
 
@@ -146,11 +146,131 @@ static heap_management_t temp_heaping;
 static heap_management_t *heapmgt = &temp_heaping;
 
 
-static void 
-vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
+typedef enum {
+    /* I - Init, Interop - first allocation failed
+     *    check for incompatible kernel drivers 
+     */
+    OOM_INIT    = 0x1,
+    /* R - Reserve - out of virtual reservation *
+     *    increase -vm_size to reserve more memory
+     */
+    OOM_RESERVE = 0x2,
+    /* C - Commit - systemwide page file limit, or current process job limit hit
+     * Increase pagefile size, check for memory leak in any application.
+     *
+     * FIXME: possible automatic actions
+     *    if systemwide failure we may want to wait if transient 
+     *    FIXME: if in a job latter we want to detect and just die 
+     *    (though after freeing as much memory as we can)
+     */
+    OOM_COMMIT  = 0x4,
+    /* E - Extending Commit - same reasons as Commit 
+     *    as a possible workaround increasing -heap_commit_increment
+     *    may make expose us to commit-ing less frequently,
+     *    On the other hand committing smaller chunks has a higher 
+     *    chance of getting through when there is very little memory.
+     *
+     *    FIXME: not much more informative than OOM_COMMIT
+     */
+    OOM_EXTEND  = 0x8,
+} oom_source_t;
+
+static void
+report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code)
 {
 	/* need to be filled up */
 }
+
+static inline void
+vmm_heap_initialize_unusable(vm_heap_t *vmh)
+{
+	vmh->start_addr = vmh->end_addr = NULL;
+	vmh->num_blocks = vmh->num_free_blocks = 0;
+}
+
+static void 
+vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
+{
+	ptr_uint_t preferred;
+	heap_error_code_t error_code;
+	ASSIGN_INIT_LOCK_FREE(vmh->lock, vmh_lock);
+
+	size = ALIGN_FORWARD(size, VMM_BLOCK_SIZE);
+	ASSERT(size < MAX_VMM_HEAP_UNIT_SIZE);
+	vmh->alloc_size = size;
+
+	if(size == 0)
+	{
+		vmm_heap_initialize_unusable(&heapmgt->vmheap);
+		return;
+	}
+
+	preferred = DENTRE_OPTION(vm_base) 
+		+ get_random_offset(DENTRE_OPTION(vm_max_offset)/VMM_BLOCK_SIZE) * VMM_BLOCK_SIZE;
+	preferred = ALIGN_FORWARD(preferred, VMM_BLOCK_SIZE);
+	ASSERT(preferred + size < preferred);
+
+	vmh->start_addr = NULL;
+#ifdef N64
+	/* need to be filled up */
+#endif
+	vmh->start_addr = os_heap_reserve((void *)preferred, size, &error_code, true/*+x*/);
+    LOG(GLOBAL, LOG_HEAP, 1,
+        "vmm_heap_unit_init preferred="PFX" got start_addr="PFX"\n",
+        preferred, vmh->start_addr);
+
+	while(vmh->start_addr == NULL && DENTRE_OPTION(vm_allow_not_at_base))
+	{
+		SYSLOG_INTERNAL_WARNING_ONCE("Preferred vmm heap allocation failed");
+		vmh->alloc_size = size + VMM_BLOCK_SIZE;
+#ifdef N64
+		/* need to be filled up */
+#endif
+		vmh->alloc_addr = (heap_pc)
+			os_heap_reserve(NULL, size + VMM_BLOCK_SIZE, &error_code, true/*+x*/);
+		vmh->start_addr = (heap_pc)
+			ALIGN_FORWARD(vmh->alloc_addr, VMM_BLOCK_SIZE);
+        LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_unit_init unable to allocate at preferred="
+            PFX" letting OS place sz=%dM addr="PFX" \n",
+            preferred, size/(1024*1024), vmh->start_addr);
+
+		if(DENTRE_OPTION(vm_allow_smaller))
+		{
+			size_t sub = (size_t) ALIGN_FORWARD(size/16, 1024 * 1024);
+			SYSLOG_INTERNAL_WARNING_ONCE("Full size vmm heap allocation failed");
+			if(size > sub)
+				size -= sub;
+			else
+				break;
+		}
+		else
+			break;
+	}
+#ifdef N64
+	/* need to be filled up */
+#endif
+	if(vmh->start_addr == NULL)
+	{
+		vmm_heap_initialize_unusable(vmh);
+		report_low_on_memory(OOM_INIT, error_code);	/* out of luck, no memory reserve */
+	}
+
+	vmh->end_addr = vmh->start_addr + size;
+	ASSERT_TRUNCATE(vmh->num_blocks, uint, size / VMM_BLOCK_SIZE);
+	vmh->num_blocks = (uint) (size / VMM_BLOCK_SIZE);
+	vmh->num_free_blocks = vmh->num_blocks;
+	LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_uint_init ["PFX","PFX") total = %d free = %d\n",
+			vmh->start_addr, vmh->end_addr, vmh->num_blocks, vmh->num_free_blocks);
+
+	ASSERT(ALIGNED(MAX_VMM_HEAP_UNIT_SIZE, VMM_BLOCK_SIZE));
+	bitmap_initialize_free(vmh->blocks, vmh->num_blocks);
+
+    DOLOG(1, LOG_HEAP, {
+        vmm_dump_map(vmh);
+    });
+	ASSERT(bitmap_check_consistency(vmh->blocks, vmh->num_blocks, vmh->num_free_blocks));
+}
+
 
 void 
 vmm_heap_init(void)
