@@ -63,6 +63,32 @@ typedef enum {
 #endif
 
 
+typedef byte * heap_pc;
+#define HEAP_ALIGNMENT sizeof(heap_pc*)
+
+
+/* virtual heap manager */
 void vmm_heap_init(void);
+
+/* heap management */
+void heap_init(void);
+void heap_reset_int(void);
+
+void *heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which));
+
+void *global_unprotected_heap_alloc(size_t size HEAPACCT(which_heap_t which));
+
+#define UNPROTECTED_LOCAL_ALLOC(dc, ...)	global_unprotected_heap_alloc(__VA_ARGS__)
+
+#define PROTECTED	true
+#define UNPROTECTED	false
+
+#define HEAP_ARRAY_ALLOC(dc, type, num, which, protected)	\
+	((protected) ?	\
+	 (type *)heap_alloc(dc, sizeof(type)*(num) HEAPACCT(which)) :	\
+	 (type *)UNPROTECTED_LOCAL_ALLOC(dc, sizeof(type)*num HEAPACCT(which)))
+
+#define HEAP_TYPE_ALLOC(dc, type, which, protected)	\
+	HEAP_ARRAY_ALLOC(dc, type, 1, which, protected)
 
 #endif

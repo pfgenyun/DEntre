@@ -51,4 +51,6 @@ struct _dcontext_t
 };
 
 
+#define GLOBAL_DCONTEXT	((dcontext_t *)PTR_UINT_MINUS_1)
+
 #endif

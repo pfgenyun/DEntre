@@ -18,8 +18,10 @@
 OBJ_PRELOAD = preload.o os.o config.o
 SOURCE_PRELOAD = preload.c os.c config.c
 
-OBJ_DENTRE = utils.o dentre.o options.o instrument.o
-SOURCE_DENTRE = utils.c dentre.c options.c instrument.c
+OBJ_DENTRE = utils.o dentre.o options.o instrument.o perfctr.o	\
+			 heap.o proc.o
+SOURCE_DENTRE = utils.c dentre.c options.c instrument.c perfctr.c	\
+				heap.c proc.c
 
 CC = gcc
 C_FLAG = -g -O0 -fPIC -shared -DO32  
@@ -46,6 +48,7 @@ ALL:
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} mips/instrument.c        -c -o  ${OBJDIR}instrument.o;		\
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} perfctr.c                -c -o  ${OBJDIR}perfctr.o;			\
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} heap.c                   -c -o  ${OBJDIR}heap.o;			\
+	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} mips/proc.c              -c -o  ${OBJDIR}proc.o;			\
 															\
 	cd ${OBJDIR};											 \
 	${CC} ${C_FLAG} ${LINK_FLAG} -nostartfiles  -o  libpreload.so $(OBJ_PRELOAD);		\

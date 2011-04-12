@@ -32,6 +32,7 @@
 
 /* global thread-shared var */
 bool dentre_initialized = false;
+bool dentre_heap_initialized = false;
 
 bool dentre_exited = false;
 
@@ -182,6 +183,8 @@ dentre_app_init(void)
 #endif
 
 	vmm_heap_init();
+	heap_init();
+	dentre_heap_initialized = true;
 
 	return SUCCESS;
 

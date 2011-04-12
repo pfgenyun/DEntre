@@ -114,6 +114,11 @@ typedef int		bool;
 #endif
 
 
+#define PTR_UINT_0       ((ptr_uint_t)0U)
+#define PTR_UINT_1       ((ptr_uint_t)1U)
+#define PTR_UINT_MINUS_1 ((ptr_uint_t)-1)
+
+
 typedef int file_t;
 /** The sentinel value for an invalid file_t. */
 #define INVALID_FILE -1

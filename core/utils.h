@@ -616,6 +616,6 @@ size_t get_random_offset(size_t max_offset);
 #define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
 #define ALIGN_FORWARD(x, alignment) \
     ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
-
+#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment)-1)))
 
 #endif

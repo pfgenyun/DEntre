@@ -17,15 +17,70 @@
  * and/or other materials provided with the distribution.
  */
 
+#include <limits.h>		/* UINT_MAX */
+#include <string.h>
+
 #include "globals.h"
 #include "utils.h"
 #include "heap.h"
 #include "options.h"
+#include "mips/proc.h"
 
-//#define BLOCK_TYPES (sizeof(BLOCK_SIZES)/sizeof(uint))
-#define BLOCK_TYPES 12		/* need to be filled up */
+/* need to be filled up */
+static const uint BLOCK_SIZES[] = {
+    8, /* for instr bits */
+#ifndef N64
+    /* for x64 future_fragment_t is 24 bytes (could be 20 if we could put flags last) */
+//    sizeof(future_fragment_t), /* 12 (24 x64) */
+	12,
+#endif
+    /* we have a lot of size 16 requests for IR but they are transient */
+    24, /* fcache empties and vm_area_t are now 20, vm area extras still 24 */
+//    ALIGN_FORWARD(sizeof(fragment_t) + sizeof(indirect_linkstub_t), HEAP_ALIGNMENT), /* 40 dbg / 36 rel */
+	36,
+#if defined(N64) || defined(PROFILE_LINKCOUNT) || defined(CUSTOM_EXIT_STUBS)
+//    sizeof(instr_t), /* 64 (104 x64) */
+	64,
+//    sizeof(fragment_t) + sizeof(direct_linkstub_t)
+//        + sizeof(cbr_fallthrough_linkstub_t), /* 68 dbg / 64 rel, 112 x64 */
+	64,
+    /* all other bb/trace buckets are 8 larger but in same order */
+#else
+//    sizeof(fragment_t) + sizeof(direct_linkstub_t)
+//        + sizeof(cbr_fallthrough_linkstub_t), /* 60 dbg / 56 rel */
+	56,
+//    sizeof(instr_t), /* 64 */
+	64,
+#endif
+    /* we keep this bucket even though only 10% or so of normal bbs
+     * hit this.
+     * FIXME: release == instr_t here so a small waste when walking buckets 
+     */
+//    ALIGN_FORWARD(sizeof(fragment_t) + 2*sizeof(direct_linkstub_t),
+//                  HEAP_ALIGNMENT), /* 68 dbg / 64 rel (128 x64) */
+	64,
+//    ALIGN_FORWARD(sizeof(trace_t) + 2*sizeof(direct_linkstub_t) + sizeof(uint),
+//                  HEAP_ALIGNMENT), /* 80 dbg / 76 rel (148 x64 => 152) */
+	76,
+    /* FIXME: measure whether should put in indirect mixes as well */
+//    ALIGN_FORWARD(sizeof(trace_t) + 3*sizeof(direct_linkstub_t) + sizeof(uint),
+//                  HEAP_ALIGNMENT), /* 96 dbg / 92 rel (180 x64 => 184) */
+	92,
+//    ALIGN_FORWARD(sizeof(trace_t) + 5*sizeof(direct_linkstub_t) + sizeof(uint),
+//                  HEAP_ALIGNMENT), /* 128 dbg / 124 rel (244 x64 => 248) */
+	124,
+    256,
+    512,
+    UINT_MAX /* variable-length */
+};
 
-typedef byte *heap_pc;
+#define BLOCK_TYPES (sizeof(BLOCK_SIZES)/sizeof(uint))
+//#define BLOCK_TYPES 12		/* need to be filled up */
+
+#define HEADER_SIZE	sizeof(size_t)
+
+#define GLOBAL_UNIT_MIN_SIZE	INTERNAL_OPTION(initial_global_heap_unit_size)
+
 typedef byte *vm_addr_t;
 
 /* thread-local heap structure
@@ -142,8 +197,8 @@ typedef struct _heap_managemen_t
 	thread_units_t global_unprotected_units;
 }heap_management_t;
 
-static heap_management_t temp_heaping;
-static heap_management_t *heapmgt = &temp_heaping;
+static heap_management_t temp_heapmgt;
+static heap_management_t *heapmgt = &temp_heapmgt;
 
 
 typedef enum {
@@ -283,4 +338,79 @@ vmm_heap_init(void)
 	{
 		vmm_heap_unit_init(&heapmgt->vmheap, DENTRE_OPTION(vm_reserve));
 	}
+}
+
+
+
+static void
+threadunits_init(dcontext_t *dcontext, thread_units_t *tu, size_t size)
+{
+	/* need to be filled up */
+}
+
+void
+heap_reset_init()
+{
+	/*need to be filled up */
+}
+
+void
+heap_init(void)
+{
+	int i;
+	uint prev_sz = 0;
+
+	LOG(GLOBAL, LOG_TOP|LOG_HEAT, 2, "heap bucket sizes are:\n");
+
+	ASSERT(ALIGNED(HEADER_SIZE, HEAP_ALIGNMENT));
+
+	ASSERT(BLOCK_SIZES[0] >= sizeof(heap_pc *));
+
+	for(i=0; i<BLOCK_TYPES; i++)
+	{
+		/* need to be filled up */
+		ASSERT(BLOCK_SIZES[i] > prev_sz);
+		ASSERT(i == BLOCK_TYPES - 1 || ALIGNED(BLOCK_SIZES[i], HEAP_ALIGNMENT));
+
+		prev_sz = BLOCK_SIZES[i];
+		LOG(GLOBAL, LOG_TOP|LOG_HEAP, 2, "\t%d bytes\n", BLOCK_SIZES[i]);
+	}
+
+    /* we assume writes to some static vars are atomic,
+     * i.e., the vars don't cross cache lines.  they shouldn't since
+     * they should all be 4-byte-aligned in the data segment.
+     * FIXME: ensure that release build aligns ok?
+     * I would be quite surprised if static vars were not 4-byte-aligned!
+     */
+    ASSERT(ALIGN_BACKWARD(&heap_exiting, CACHE_LINE_SIZE()) ==
+           ALIGN_BACKWARD(&heap_exiting + 1, CACHE_LINE_SIZE()));
+    ASSERT(ALIGN_BACKWARD(&heap_unit_lock.owner, CACHE_LINE_SIZE()) ==
+           ALIGN_BACKWARD(&heap_unit_lock.owner + 1, CACHE_LINE_SIZE()));
+
+	ASSERT(heapmgt == &temp_heapmgt);
+	heapmgt->global_heap_writable = true;
+	threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_units, GLOBAL_UNIT_MIN_SIZE);
+
+	heapmgt = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, heap_management_t, ACCT_MEM_MGT, PROTECTED);
+	memset(heapmgt, 0, sizeof(*heapmgt));
+
+	ASSERT(sizeof(temp_heapmgt) == sizeof(*heapmgt));
+	memcpy(heapmgt, &temp_heapmgt, sizeof(temp_heapmgt));
+
+	threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_unprotected_units, GLOBAL_UNIT_MIN_SIZE);
+
+	heap_reset_init();
+
+}
+
+void *
+heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
+{
+	/* need to be filled up */
+}
+
+void *
+global_unprotected_heap_alloc(size_t size HEAPACCT(which_heap_t which))
+{
+	/* need to be filled up */
 }
