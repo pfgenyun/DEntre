@@ -82,6 +82,16 @@ const char *get_application_short_name(void);
 uint query_time_seconds();
 
 
+#define DR_MEMPROT_NONE  0x00 /**< No read, write, or execute privileges. */
+#define DR_MEMPROT_READ  0x01 /**< Read privileges. */
+#define DR_MEMPROT_WRITE 0x02 /**< Write privileges. */
+#define DR_MEMPROT_EXEC  0x04 /**< Execute privileges. */
+
+#define MEMPROT_NONE  DR_MEMPROT_NONE
+#define MEMPROT_READ  DR_MEMPROT_READ
+#define MEMPROT_WRITE DR_MEMPROT_WRITE
+#define MEMPROT_EXEC  DR_MEMPROT_EXEC
+
 /***************************************************************************
  * SELF_PROTECTION
  */
@@ -173,7 +183,7 @@ extern uint datasec_writable_cxtswprot;
 #define CXTSW_PROTECTED_SECTION  ".cspdata"
 
 
-#define DECLEAR_CXTSWPROT_VAR(var, ...)							\
+#define DECLARE_CXTSWPROT_VAR(var, ...)							\
 	START_DATA_SECTION(CXTSW_PROTECTED_SECTION, "w")			\
 	var VAR_IN_SECTION(CXTSW_PROTECTED_SECTION) = __VA_ARGS__;	\
 	END_DATA_SECTION()

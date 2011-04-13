@@ -25,6 +25,8 @@
 #include "heap.h"
 #include "options.h"
 #include "mips/proc.h"
+#include "vmareas.h"
+#include "fcache.h"
 
 /* need to be filled up */
 static const uint BLOCK_SIZES[] = {
@@ -81,6 +83,12 @@ static const uint BLOCK_SIZES[] = {
 
 #define GLOBAL_UNIT_MIN_SIZE	INTERNAL_OPTION(initial_global_heap_unit_size)
 
+#define GUARD_PAGE_ADJUSTMENT	(dentre_options.guard_pages ? 2*PAGE_SIZE : 0)
+
+#define UNIT_RESERVED_ROOM(u)		((size_t)(u->end_pc - u->start_pc))
+
+#define UNIT_RESERVED_SIZE(u)	(UNIT_RESERVED_ROOM(u) + sizeof(heap_unit_t))
+
 typedef byte *vm_addr_t;
 
 /* thread-local heap structure
@@ -88,10 +96,10 @@ typedef byte *vm_addr_t;
  */
 typedef struct _heap_unit_t
 {
-	heap_pc start_pc;
-	heap_pc end_pc;
-	heap_pc cur_pc;
-	heap_pc reserved_end_pc;
+	heap_pc start_pc;			/* not include heap_uint_t space */
+	heap_pc end_pc;				/* alloc addr include heap_uint_t space + commit_size */
+	heap_pc cur_pc;				
+	heap_pc reserved_end_pc;	/* alloc addr include heap_uint_t space + size */
 
 	bool in_vmarea_list;
 
@@ -129,7 +137,7 @@ typedef struct _thread_units_t
 #endif
 
 	dcontext_t *dcontext;	/* back pointer to owner */
-	bool writable;
+	bool writable;			/* remember state of heap protection */
 
 #ifdef HEAP_ACCOUNTING
 	heap_acct_t acct;
@@ -151,6 +159,16 @@ typedef struct _heap_t
 
 	uint num_dead;
 }heap_t;
+
+static bool heap_exiting = false;
+
+/* Lock used only for managing heap units, not for normal thread-local alloc.
+ * Must be recursive due to circular dependencies between vmareas and global heap.
+ * Furthermore, always grab dynamo_vm_areas_lock() before grabbing this lock,
+ * to make DR areas update and heap alloc/free atomic!
+ */
+DECLARE_CXTSWPROT_VAR(static recursive_lock_t heap_unit_lock,
+                      INIT_RECURSIVE_LOCK(heap_unit_lock));
 
 enum
 {
@@ -200,6 +218,14 @@ typedef struct _heap_managemen_t
 static heap_management_t temp_heapmgt;
 static heap_management_t *heapmgt = &temp_heapmgt;
 
+
+
+static bool
+safe_to_allocate_or_free_heap_units()
+{
+	/* need to be filled up */
+	/* grab lock */
+}
 
 typedef enum {
     /* I - Init, Interop - first allocation failed
@@ -326,6 +352,204 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
 	ASSERT(bitmap_check_consistency(vmh->blocks, vmh->num_blocks, vmh->num_free_blocks));
 }
 
+/* set bitmap of heapmgt->vmheap */
+static vm_addr_t
+vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable)
+{
+	/* need to be filled up */
+}
+
+
+static void
+heap_low_on_memory()
+{
+	/* need to be filled up */
+}
+
+
+static inline void
+accout_for_memory(void *p, size_t size, uint prot, bool add_vm _IF_DEBUG(char* comment))
+{
+	/* need to be filled up */
+}
+
+static void *
+get_real_memory(size_t size, uint prot, bool add_vm _IF_DEBUG(comment))
+{
+	/* need to be filled up */
+}
+
+
+static void
+extent_commitment(vm_addr_t p, size_t size, uint prot, bool initial_commit)
+{
+	/* need to be filled up */
+}
+
+/* a wrapper around get_real_memory that adds a guard page on each side of the requested unit.
+ * These should consume only uncommitted virtual address and should not use any physical memory.
+ * add_vm MUST be false iff this is heap memory, which is updated separately.
+ */
+static vm_addr_t
+get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
+						bool add_vm, bool guarded _IF_DEBUG(char *comment))
+{
+	vm_addr_t p;
+	uint guard_size = PAGE_SIZE;
+	heap_error_code_t error_code;
+
+	ASSERT(reserve_size > commit_size);
+
+	if(!guarded || dentre_options.guard_pages)
+	{
+		if(reserve_size == commit_size)
+			return get_real_memory(reserve_size, prot, add_vm _IF_DEBUG(comment));
+		guard_size = 0;
+	}
+
+	reserve_size = ALIGN_FORWARD(reserve_size, PAGE_SIZE);
+	commit_size = ALIGN_FORWARD(commit_size, PAGE_SIZE);
+
+	reserve_size += 2 * guard_size;		/* add top and bottom guards. why guard ? */
+
+	/* memory alloc/dealloc and updating DE list must be atomic */
+	dentre_vm_areas_lock();
+
+	p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot));
+	if(p == NULL)
+	{
+        /* This is very unlikely to happen - we have to reach at least 2GB reserved memory. */
+        SYSLOG_INTERNAL_WARNING_ONCE("Out of memory - cannot reserve %dKB. "
+                                     "Trying to recover.", reserve_size/1024);
+		heap_low_on_memory();
+		fcache_low_on_memory();
+
+		p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot));
+        if (p == NULL) {
+            report_low_on_memory(OOM_RESERVE, error_code);
+        }
+
+        SYSLOG_INTERNAL_WARNING_ONCE("Out of memory on reserve - but still "
+                                     "alive after emergency free.");
+	}
+
+    /* includes guard pages if add_vm -- else, heap_vmareas_synch_units() will
+     * add guard pages in by assuming one page on each side of every heap unit
+     * if dynamo_options.guard_pages
+     */
+	accout_for_memory((void *)p, reserve_size, prot, add_vm _IF_DEBUG(comment));
+	
+	dentre_vm_areas_unlock();
+
+    STATS_ADD_PEAK(reserved_memory_capacity, reserve_size);
+    STATS_ADD_PEAK(guard_pages, 2);
+
+	p += guard_size;
+	extend_commitment(p, commit_size, prot, true/* initial commit */);
+
+	return p;
+}
+
+
+/* size does not include guard pages (if any) and is reserved, but only
+ * DYNAMO_OPTION(heap_commit_increment) is committed up front
+ */
+static heap_unit_t *
+heap_creat_unit(thread_units_t *tu, size_t size, bool must_be_new)
+{
+	heap_unit_t *u = NULL;
+	heap_unit_t *dead = NULL;
+	heap_unit_t *prev_dead = NULL;
+
+	bool new_unit = false;
+
+    /* we do not restrict size to unit max as we have to make larger-than-max
+     * units for oversized requests
+     */
+
+    /* modifying heap list and DR areas must be atomic, and must grab
+     * DR area lock before heap_unit_lock
+     */
+	ASSERT(safe_to_allocate_or_free_heap_units());
+	dentre_vm_areas_lock();
+	acquire_recursive_lock(&heap_unit_lock);	/* for heapmgt->heap.units */
+
+	if(!must_be_new)
+	{
+		for(dead = heapmgt->heap.dead;
+			dead != NULL && UNIT_RESERVED_SIZE(dead) < size;
+			prev_dead = dead, dead = dead->next_global)
+			;
+	}
+
+	if(dead != NULL)
+	{
+		if(prev_dead == NULL)	/* the first dead unit */
+			heapmgt->heap.dead = dead->next_global;
+		else
+			prev_dead->next_global = dead->next_global;
+		u = dead;
+		heapmgt->heap.num_dead--;
+		RSTATS_DEC(heap_num_free);
+		release_recursive_lock(&heap_unit_lock);
+        LOG(GLOBAL, LOG_HEAP, 2,
+            "Re-using dead heap unit: "PFX"-"PFX" %d KB (need %d KB)\n",
+            u, ((byte*)u)+size/* start_pc + size */, UNIT_RESERVED_SIZE(u)/1024, size/1024);
+	}
+	else
+	{
+		/* first time this way */
+		size_t commit_size = DENTRE_OPTION(heap_commit_increment);	/* 4K */
+		release_recursive_lock(&heap_unit_lock);
+
+		/* create new unit */
+		ASSERT(commit_size < size);		/* why */
+
+		u = (heap_unit_t *)
+			get_guarded_real_memory(size, commit_size, MEMPROT_READ|MEMPROT_WRITE, 
+									false, true _IF_DEBUG(""));
+		new_unit = true;
+		ASSERT(u);
+        LOG(GLOBAL, LOG_HEAP, 2, "New heap unit: "PFX"-"PFX"\n", u, ((byte*)u)+size);
+
+		u->start_pc = (heap_pc)(((ptr_uint_t)u) + sizeof(heap_unit_t));
+		u->end_pc = ((heap_pc)u) + commit_size;		/* why is commit_size */
+		u->reserved_end_pc = ((heap_pc)u) + size;
+		u->in_vmarea_list = false;
+
+        STATS_ADD(heap_capacity, commit_size);
+        STATS_MAX(peak_heap_capacity, heap_capacity);
+        /* FIXME: heap sizes are not always page-aligned so stats will be off */
+        STATS_ADD_PEAK(heap_reserved_only, (u->reserved_end_pc - u->end_pc));
+	}
+	RSTATS_ADD_PEAK(heap_num_live, 1);
+
+	u->cur_pc = u->start_pc;
+	u->next_local = NULL;
+
+    DODEBUG({
+        u->id = tu->num_units;
+        tu->num_units++;
+    });
+
+	acquire_recursive_lock(&heap_unit_lock);
+	/* insert u to the head of heapmgt->heap.units */	
+	u->next_global = heapmgt->heap.units;
+	if(heapmgt->heap.units != NULL)
+		heapmgt->heap.units->prev_global = u;
+	u->prev_global = NULL;
+	heapmgt->heap.units = u;
+	
+	release_recursive_lock(&heap_unit_lock);
+	dentre_vm_area_unlock();
+
+#ifdef DEBUG_MEMORY
+    memset(u->start_pc, HEAP_UNALLOCATED_BYTE, u->end_pc - u->start_pc);
+#endif
+
+    return u;
+
+}
 
 void 
 vmm_heap_init(void)
@@ -341,11 +565,21 @@ vmm_heap_init(void)
 }
 
 
-
 static void
 threadunits_init(dcontext_t *dcontext, thread_units_t *tu, size_t size)
 {
-	/* need to be filled up */
+	int i;
+	DODEBUG({tu->num_units = 0});
+
+	tu->top_unit = heap_creat_unit(tu, size-GUARD_PAGE_ADJUSTMENT, false/* can reuse*/);
+	tu->cur_unit = tu->top_unit;
+	tu->dcontext = dcontext;
+	tu->writable = true;
+#ifdef HEAP_ACCOUTING
+	memset(&tu->acct, 0, sizeof(tu->acct));
+#endif
+	for(i=0; i<BLOCK_TYPES; i++)
+		tu->free_list[i] = NULL;
 }
 
 void
@@ -389,7 +623,7 @@ heap_init(void)
 
 	ASSERT(heapmgt == &temp_heapmgt);
 	heapmgt->global_heap_writable = true;
-	threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_units, GLOBAL_UNIT_MIN_SIZE);
+	threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_units, GLOBAL_UNIT_MIN_SIZE/* 32k */);
 
 	heapmgt = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, heap_management_t, ACCT_MEM_MGT, PROTECTED);
 	memset(heapmgt, 0, sizeof(*heapmgt));

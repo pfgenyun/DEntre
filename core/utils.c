@@ -55,6 +55,20 @@ getnamefrompid(int pid, char *name, uint maxlen)
     close_syscall(fd);
 }
 
+
+void
+acquire_recursive_lock(recursive_lock_t *lock)
+{
+	/* need to be filled up */
+}
+
+void
+release_recursive_lock(recursive_lock_t *lock)
+{
+	/* need to be filled up */
+}
+
+
 void
 read_lock(read_write_lock_t *rw)
 {

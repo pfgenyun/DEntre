@@ -91,4 +91,35 @@ void *global_unprotected_heap_alloc(size_t size HEAPACCT(which_heap_t which));
 #define HEAP_TYPE_ALLOC(dc, type, which, protected)	\
 	HEAP_ARRAY_ALLOC(dc, type, 1, which, protected)
 
+
+
+#ifdef DEBUG_MEMORY
+# define HEAP_TO_BYTE_EX(hex) 0x##hex
+# define HEAP_TO_BYTE(hex) HEAP_TO_BYTE_EX(hex)
+# define HEAP_TO_UINT_EX(hex) 0x##hex##hex##hex##hex
+# define HEAP_TO_UINT(hex) HEAP_TO_UINT_EX(hex)
+# ifdef N64
+#  define HEAP_TO_PTR_UINT_EX(hex) 0x##hex##hex##hex##hex##hex##hex##hex##hex
+# else
+#  define HEAP_TO_PTR_UINT_EX(hex) 0x##hex##hex##hex##hex
+# endif
+# define HEAP_TO_PTR_UINT(hex) HEAP_TO_PTR_UINT_EX(hex)
+
+# define HEAP_UNALLOCATED cd
+# define HEAP_UNALLOCATED_BYTE HEAP_TO_BYTE(HEAP_UNALLOCATED)
+# define HEAP_UNALLOCATED_UINT HEAP_TO_UINT(HEAP_UNALLOCATED)
+# define HEAP_UNALLOCATED_PTR_UINT HEAP_TO_PTR_UINT(HEAP_UNALLOCATED)
+
+# define HEAP_ALLOCATED ab
+# define HEAP_ALLOCATED_BYTE HEAP_TO_BYTE(HEAP_ALLOCATED)
+# define HEAP_ALLOCATED_UINT HEAP_TO_UINT(HEAP_ALLOCATED)
+# define HEAP_ALLOCATED_PTR_UINT HEAP_TO_PTR_UINT(HEAP_ALLOCATED)
+
+# define HEAP_PAD bc
+# define HEAP_PAD_BYTE HEAP_TO_BYTE(HEAP_PAD)
+# define HEAP_PAD_UINT HEAP_TO_UINT(HEAP_PAD)
+# define HEAP_PAD_PTR_UINT HEAP_TO_PTR_UINT(HEAP_PAD)
+#endif
+
+
 #endif

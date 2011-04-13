@@ -166,6 +166,12 @@
 void print_log(file_t logfile, uint mask, uint level, char *fmt, ...);
 file_t get_thread_private_logfile(void);
 
+
+/* need to be filled up */
+#define XSTATS_DEC(stat)	
+#define XSTATS_ADD_PEAK(stat, value)
+
+
 #ifdef DEBUG
 #   define DODEBUG(statement) do { statement } while (0)
 #   define DEBUG_DECLARE(declaration) declaration
@@ -245,6 +251,14 @@ file_t get_thread_private_logfile(void);
 #endif /* DEBUG */
 
 
+/* common to both release and debug build */
+#define RSTATS_INC XSTATS_INC
+#define RSTATS_DEC XSTATS_DEC
+#define RSTATS_ADD XSTATS_ADD
+#define RSTATS_SUB XSTATS_SUB
+#define RSTATS_ADD_PEAK XSTATS_ADD_PEAK
+
+
 /* what-to-log bitmask values */
 /* N.B.: if these constants are changed, win32gui must also be changed!
  * They are also duplicated in instrument.h -- too hard to get them to
@@ -299,6 +313,20 @@ typedef struct _spin_mutex_t
 {
 	mutex_t lock;
 }spin_lock_t;
+
+
+/* perhaps for DEBUG all locks should record owner? */
+typedef struct _recursive_lock_t {
+    mutex_t lock;
+    /* ASSUMPTION: reading owner field is atomic!
+     * Thus must allocate this statically (compiler should 4-byte-align
+     * this field, which is good enough) or align it manually!
+     * FIXME: provide creation routine that does that for non-static locks
+     */
+    thread_id_t owner;
+    uint count;
+} recursive_lock_t;
+
 
 typedef struct _read_write_lock_t
 {
@@ -573,6 +601,15 @@ bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, 
      var = initializer_##lock;                                          \
    } while (0)
 
+
+#define INIT_RECURSIVE_LOCK(lock) STRUCTURE_TYPE(recursive_lock_t) {       \
+     INIT_LOCK_NO_TYPE(                                                 \
+       #lock "(recursive)" "@" __FILE__ ":" STRINGIFY(__LINE__) ,       \
+       LOCK_RANK(lock)),                                                \
+     INVALID_THREAD_ID, 0                                               \
+   }
+
+
 #define INIT_READWRITE_LOCK(lock) STRUCTURE_TYPE(read_write_lock_t)		\
 	{																	\
 		INIT_LOCK_NO_TYPE(                                              \
@@ -582,6 +619,10 @@ bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, 
 		0,                                                               \
 		CONTENTION_EVENT_NOT_CREATED, CONTENTION_EVENT_NOT_CREATED       \
    }
+
+
+void acquire_resursive_lock(recursive_lock_t *lock);
+void release_resursive_lock(recursive_lock_t *lock);
 
 void write_lock(read_write_lock_t *rw);
 void write_unlock(read_write_lock_t *rw);

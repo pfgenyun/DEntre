@@ -103,7 +103,7 @@ options_t temp_options = {
  * are both protected by this lock, which is kept outside of the protected 
  * section to ease bootstrapping issues
  */
-DECLEAR_CXTSWPROT_VAR(read_write_lock_t options_lock, INIT_READWRITE_LOCK(options_lock));
+DECLARE_CXTSWPROT_VAR(read_write_lock_t options_lock, INIT_READWRITE_LOCK(options_lock));
 
 #else /* !NOT_DYNAMORIO_CORE ****************************************/
 # define ASSERT_OWN_OPTIONS_LOCK(b, l)
