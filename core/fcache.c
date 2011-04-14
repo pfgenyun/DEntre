@@ -18,9 +18,35 @@
  */
 
 #include "globals.h"
+#include "utils.h"
+
+DECLARE_CXTSWPROT_VAR(mutex_t reset_pending_lock, INIT_LOCK_FREE(reset_pending_lock));
+
+/* indicates a call to fcache_reset_all_caches_proactively() is pending in dispatch */
+DECLARE_FREQPROT_VAR(uint reset_pending, 0);
+
 
 void 
 fcache_low_on_memory()
 {
 	/* need to be filled up */
 }
+
+
+/* returns true if specified target wasn't already scheduled for reset */
+bool
+schedule_reset(uint target)
+{
+	bool added_target;
+	ASSERT(target != 0);
+
+	mutex_lock(&reset_pending_lock);
+
+	added_target = !TESTALL(target, reset_pending);
+	reset_pending |= target;
+
+	mutex_unlock(&reset_pending_lock);
+
+	return added_target;
+}
+

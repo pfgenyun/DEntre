@@ -594,6 +594,10 @@ bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, 
 
 #define STRUCTURE_TYPE(x)
 
+#define INIT_LOCK_FREE(lock) STRUCTURE_TYPE(mutex_t) INIT_LOCK_NO_TYPE( \
+       #lock "(mutex)" "@" __FILE__ ":" STRINGIFY(__LINE__),          \
+       LOCK_RANK(lock))
+
 #define ASSIGN_INIT_LOCK_FREE(var, lock) do {                           \
      mutex_t initializer_##lock = STRUCTURE_TYPE(mutex_t) INIT_LOCK_NO_TYPE(\
             #lock "(mutex)" "@" __FILE__ ":" STRINGIFY(__LINE__),       \
@@ -630,6 +634,54 @@ void write_unlock(read_write_lock_t *rw);
 void read_lock(read_write_lock_t *rw);
 void read_unlock(read_write_lock_t *rw);
 
+void mutex_lock(mutex_t *lock);
+void mutex_unlock(mutex_t *lock);
+
+/* need to be filled up */
+#define OWN_MUTEX(m)	
+
+/* need to be filled up */
+#define DO_ONCE(statement)	
+
+/* This is more heavy-weight and includes its own static mutex 
+ * The counter is only incremented if it is less than the threshold
+ */
+/* Self-protection case 8075: can't use pragma at local scope.  We put
+ * the burden on the caller to make the do_threshold_cur in .data
+ * writable.  For do_threshold_mutex, even if it's writable at the
+ * macro site, {add,remove}_process_lock will crash on adjacent
+ * entries in the lock list (and an attempt there to unprot .data will
+ * deadlock as the datasec lock is acquired and hits the same
+ * unprot!).  So we use a single global mutex in debug builds.  There
+ * aren't currently any uses of this macro that will be hurt by this
+ * serialization so we could also do it in release builds.
+ */
+#ifdef DEADLOCK_AVOIDANCE
+extern mutex_t do_threshold_mutex;
+# define DECLARE_THRESHOLD_LOCK(section) /* nothing */
+#else
+# define DECLARE_THRESHOLD_LOCK(section) \
+    static mutex_t do_threshold_mutex VAR_IN_SECTION(section) \
+        = INIT_LOCK_FREE(do_threshold_mutex);
+#endif
+/* The section argument is our support for the user wrapping entire
+ * function in a separate section, which for gcc also requires
+ * annotating each var declaration.
+ */
+#define DO_THRESHOLD_SAFE(threshold, section, statement_below, statement_after) {\
+        DECLARE_THRESHOLD_LOCK(section)                                 \
+        static uint do_threshold_cur VAR_IN_SECTION(section) = 0;       \
+        mutex_lock(&do_threshold_mutex);                                \
+        if (do_threshold_cur < threshold) {                             \
+            do_threshold_cur++;                                         \
+            mutex_unlock(&do_threshold_mutex);                          \
+            statement_below;                                            \
+        } else {                                                        \
+            mutex_unlock(&do_threshold_mutex);                          \
+            statement_after; /* or at */                                \
+        }                                                               \
+}
+
 
 /* Current implementation uses integers representing 32 bits */
 typedef uint bitmap_element_t;
@@ -647,6 +699,7 @@ typedef bitmap_element_t bitmap_t[];
 #define BITMAP_NOT_FOUND ((uint)-1)
 
 void bitmap_initialize_free(bitmap_t b, uint bitmap_size);
+uint bitmap_allocate_blocks(bitmap_t b, uint bitmap_size, uint request_blocks);
 bool bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect);
 
 

@@ -94,6 +94,17 @@ write_unlock(read_write_lock_t *rw)
 	/* need to be filled up */
 }
 
+void
+mutex_lock(mutex_t *lock)
+{
+	/* need to be filled up */
+}
+
+void
+mutex_unlock(mutex_t *lock)
+{
+	/* need to be filled up */
+}
 
 static uint spinlock_count = 0;
 DECLARE_FREQPROT_VAR(static uint random_seed, 1234);
@@ -130,6 +141,13 @@ void
 bitmap_initialize_free(bitmap_t b, uint bitmap_size)
 {
 	memset(b, 0xff, BITMAP_INDEX(bitmap_size) * sizeof(bitmap_element_t));
+}
+
+
+uint
+bitmap_allocate_blocks(bitmap_t b, uint bitmap_size, uint request_blocks)
+{
+	/* need to be filled up */
 }
 
 bool 

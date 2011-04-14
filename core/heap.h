@@ -78,6 +78,8 @@ void *heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
 
 void *global_unprotected_heap_alloc(size_t size HEAPACCT(which_heap_t which));
 
+bool schedule_reset(uint target);
+
 #define UNPROTECTED_LOCAL_ALLOC(dc, ...)	global_unprotected_heap_alloc(__VA_ARGS__)
 
 #define PROTECTED	true

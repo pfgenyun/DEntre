@@ -352,11 +352,189 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
 	ASSERT(bitmap_check_consistency(vmh->blocks, vmh->num_blocks, vmh->num_free_blocks));
 }
 
+
+static inline vm_addr_t
+vmm_block_to_addr(vm_heap_t *vmh, uint block)
+{
+	ASSERT(block <= 0 && block < vmh->num_blocks);
+	return (vm_addr_t)(vmh->start_addr + block*VMM_BLOCK_SIZE);
+}
+
+
+/* Reservations here are done with VMM_BLOCK_SIZE alignment
+ * (e.g. 64KB) but the caller is not forced to request at that
+ * alignment.  We explicitly synchronize reservations and decommits
+ * within the vm_heap_t.
+
+ * Returns NULL if the VMMHeap is full or too fragmented to satisfy
+ * the request.
+ */
+static vm_addr_t
+vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size_in)
+{
+	vm_addr_t p;
+	uint request;
+	uint first_block;
+	size_t size;
+
+	size = ALIGNED_FORWARD(size_in, VMM_BLOCK_SIZE);
+	ASSERT_TRUNCATE(request, uint, size/VMM_BLOCK_SIZE);
+	request = (uint) size / VMM_BLOCK_SIZE;
+
+    LOG(GLOBAL, LOG_HEAP, 2,
+        "vmm_heap_reserve_blocks: size=%d => %d in blocks=%d free_blocks~=%d\n",
+        size_in, size, request, vmh->num_free_blocks);
+	
+	mutex_lock(&vmh->lock);
+
+	if(vmh->num_free_blocks < request)
+	{
+		mutex_unlock(&vmh->lock);
+		return NULL;
+	}
+
+	first_block = bitmap_allocate_blocks(vmh->blocks, vmh->num_blocks, request);
+	if(first_block != BITMAP_NOT_FOUND)
+	{
+		vmh->num_free_blocks -= request;
+	}
+
+	mutex_unlock(&vmh->lock);
+
+	if(first_block != BITMAP_NOT_FOUND)
+	{
+		p = vmm_block_to_addr(vmh, first_block);
+        STATS_ADD_PEAK(vmm_vsize_used, size);
+        STATS_ADD_PEAK(vmm_vsize_blocks_used, request);
+        STATS_ADD_PEAK(vmm_vsize_wasted, size - size_in);
+        DOSTATS({
+            if (request > 1) {
+                STATS_INC(vmm_multi_block_allocs);
+                STATS_ADD(vmm_multi_blocks, request);
+            }
+        });
+	}
+	else
+	{
+		p = NULL;
+	}
+
+    LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_reserve_blocks: size=%d blocks=%d p="PFX"\n",
+        size, request, p);
+    DOLOG(5, LOG_HEAP, { vmm_dump_map(vmh); });
+
+	return p;
+}
+
+
+/* (1) num_free_blocks/num_blocks < 10% ||
+ * (2) vmm_size < reset_at_vmm_free_limit 
+ */
+static bool
+at_reset_at_vmm_limit()
+{
+	return 
+		(DENTRE_OPTION(reset_at_vmm_percent_free_limit) != 0 && 
+		 100 * heapmgt->vmheap.num_free_blocks <
+		 DENTRE_OPTION(reset_at_vmm_percent_free_limit) * heapmgt->vmheap.num_blocks) ||
+		(DENTRE_OPTION(reset_at_vmm_free_limit) != 0 &&
+		 heapmgt->vmheap.num_free_blocks * VMM_BLOCK_SIZE < 
+		 DENTRE_OPTION(reset_at_vmm_free_limit));
+}
+
 /* set bitmap of heapmgt->vmheap */
+/* Reserve virtual address space without committing swap space for it */
 static vm_addr_t
 vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable)
 {
+	vm_addr_t p;
+
+	ASSERT(size > 0 && ALIGNED(size, PAGE_SIZE));
+	ASSERT(!OWN_MUTEX(&reset_pending_lock));
+
+	if(DENTRE_OPTION(vm_reserve))
+	{
+		if(INTERNAL_OPTION(vm_use_last) ||
+		   (DENTRE_OPTION(switch_to_os_at_vmm_reset_limit) && at_reset_at_vmm_limit()))
+		{
+            DO_ONCE({
+                if (DENTRE_OPTION(reset_at_switch_to_os_at_vmm_limit))
+                    schedule_reset(RESET_ALL);
+                DODEBUG({
+                    if (!INTERNAL_OPTION(vm_use_last)) {
+                        ASSERT_CURIOSITY(false && "running low on vm reserve");
+                    }
+                });
+                /* FIXME - for our testing would be nice to have some release build
+                 * notification of this ... */
+            });     
+
+#ifdef N64
+			/* need to be filled up */
+#endif
+			p = os_heap_reserve(NULL, size, error_code, executable);
+			if(p != NULL)
+				return p;
+
+            LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_reserve: failed "PFX"\n", 
+                *error_code);
+		}
+
+		if(at_reset_at_vmm_limit())
+		{
+			if(schedule_reset(RESET_ALL))		/* only notification ? */
+			{
+				STATS_INC(reset_low_vmm_count);
+                DO_THRESHOLD_SAFE(DENTRE_OPTION(report_reset_vmm_threshold),
+                                  FREQ_PROTECTED_SECTION,
+                {/* < max - nothing */},
+                {/* >= max */
+                    /* FIXME - do we want to report more then once to give some idea of 
+                     * how much thrashing there is? */
+                    DO_ONCE({
+                        SYSLOG_CUSTOM_NOTIFY(SYSLOG_WARNING, MSG_LOW_ON_VMM_MEMORY, 2,
+                                             "Potentially thrashing on low virtual "
+                                             "memory resetting.", get_application_name(),
+                                             get_application_pid());
+                        /* want QA to notice */
+                        ASSERT_CURIOSITY(false && "vmm heap limit reset thrashing");
+                    });
+                });
+			}
+		}
+
+		p = vmm_heap_reserve_blocks(&heapmgt->vmheap, size);
+        LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_reserve: size=%d p="PFX"\n", size, p);
+
+        if (p)
+			return p;
+		/*if (p == NULL) */	
+        DO_ONCE({
+            DODEBUG({ out_of_vmheap_once = true; });
+            if (!INTERNAL_OPTION(skip_out_of_vm_reserve_curiosity)) {
+                /* this maybe unsafe for early services w.r.t. case 666 */
+                SYSLOG_INTERNAL_WARNING("Out of vmheap reservation - reserving %dKB."
+                                        "Falling back onto OS allocation", size/1024);
+                ASSERT_CURIOSITY(false && "Out of vmheap reservation");
+            }
+            /* This actually-out trigger is only trying to help issues like a
+             * thread-private configuration being a memory hog (and thus we use up
+             * our reserve). Reset needs memory, and this is asynchronous, so no
+             * guarantees here anyway (the app may have already reserved all memory
+             * beyond our reservation, see sqlsrvr.exe and cisvc.exe for ex.) which is
+             * why we have -reset_at_vmm_threshold to make reset success more likely. */
+            if (DENTRE_OPTION(reset_at_vmm_full)) {
+                schedule_reset(RESET_ALL);
+            }
+        });
+	}
+
+#ifdef N64
 	/* need to be filled up */
+#endif 
+	p = os_heap_reserve(NULL, size, error_code, executable);
+
+	return p;
 }
 
 
@@ -452,7 +630,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
 
 
 /* size does not include guard pages (if any) and is reserved, but only
- * DYNAMO_OPTION(heap_commit_increment) is committed up front
+ * DENTRE_OPTION(heap_commit_increment) is committed up front
  */
 static heap_unit_t *
 heap_creat_unit(thread_units_t *tu, size_t size, bool must_be_new)
