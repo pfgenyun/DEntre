@@ -39,6 +39,10 @@ LIBDIR = ../build/
 #	$(CC) ${C_FLAG}  $(SOURCE) -c
 
 ALL:
+	cd ${OBJDIR};			\
+	rm *.so *.o;			\
+	cd -;					\
+							\
 	$(CC) ${C_FLAG} ${C_FLAG_PRELOAD} ${D_FLAG} ${TOOL_FLAG} linux/preload.c          -c -o  ${OBJDIR}preload.o;		\
 	$(CC) ${C_FLAG} ${C_FLAG_PRELOAD} ${D_FLAG} ${TOOL_FLAG} linux/os.c               -c -o  ${OBJDIR}os.o;				\
 	$(CC) ${C_FLAG} ${C_FLAG_PRELOAD} ${D_FLAG} ${TOOL_FLAG} config.c                 -c -o  ${OBJDIR}config.o;			\
@@ -58,9 +62,9 @@ ALL:
 
 	
 clean :
-	-rm -f ${OBJDIR}*.o
+	-rm -f ${OBJDIR}*.o ${LIBDIR}*.so
 
 distclean:
-	-rm -f ${LIBDIR}*.so ${OBJDIR}*.o
+	-rm -rf *
 
 

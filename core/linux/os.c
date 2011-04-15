@@ -317,6 +317,20 @@ get_num_processors()
 }
 
 
+static inline uint
+memprot_to_osprot(uint prot)
+{
+	uint mmap_prot = 0;
+	if(TEST(MEMPROT_EXEC, prot))
+		mmap_prot |= PROT_EXEC;
+	if(TEST(MEMPROT_READ, prot))
+		mmap_prot |= PROT_READ;
+	if(TEST(MEMPROT_WRITE, prot))
+		mmap_prot |= PROT_WRITE;
+
+	return mmap_prot;
+}
+
 
 static int
 get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/,
@@ -360,6 +374,13 @@ static inline long
 munmap_syscall(byte *addr, size_t len)
 {
 	dentre_syscall(SYS_munmap, 2, addr, len);
+}
+
+
+static inline long
+mprotect_syscall(byte *p, size_t size, uint prot)
+{
+	return dentre_syscall(SYS_mprotect, 3, p, size, prot);
 }
 
 void 
@@ -430,3 +451,36 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code, boo
 
 	return p;
 }
+
+
+/* commit previously reserved with os_heap_reserve pages */
+/* returns false when out of memory */
+/* A replacement of os_heap_alloc can be constructed by using os_heap_reserve 
+   and os_heap_commit on a subset of the reserved pages. */
+/* caller is required to handle thread synchronization */
+bool
+os_heap_commit(void *p, size_t size, uint prot, heap_error_code_t *error_code)
+{
+	uint os_prot = memprot_to_osprot(prot);
+
+	long res;
+
+	ASSERT(size > 0 && ALIGNED(size, PAGE_SIZE));
+	ASSERT(p);
+	ASSERT(error_code != NULL);
+
+	res = mprotect_syscall(p, size, os_prot);
+	if(res != 0)
+	{
+		*error_code = -res;
+		return false;
+	}
+	else
+		return HEAP_ERROR_SUCCESS;
+
+	LOG(GLOBAL, LOG_HEAP, 2, "os_heap_commit: %d bytes @ "PFX"\n", size, p);
+
+	return true;
+}
+
+

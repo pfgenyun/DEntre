@@ -33,6 +33,8 @@ typedef uint heap_error_code_t;
 void * os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code, 
 		bool executable);
 
+bool os_heap_commit(void *p, size_t size, uint prot, heap_error_code_t *error_code);
+
 /* file operations */
 /* defaults to read only access, if write is not set ignores others */
 #define OS_OPEN_READ        0x01

@@ -30,3 +30,15 @@ dentre_vm_areas_unlock()
 {
 	/* need to be filled up */
 }
+
+
+/* add dynamo-internal area to the dynamo-internal area list
+ * this should be atomic wrt the memory being allocated to avoid races
+ * w/ the app executing from it -- thus caller must hold DR areas write lock!
+ */
+bool
+add_dentre_vm_area(app_pc start, app_pc end, uint prot, bool unmod_image _IF_DEBUG(char *comment))
+{
+	/* need to be filled up */
+
+}

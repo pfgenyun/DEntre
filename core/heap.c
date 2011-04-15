@@ -353,6 +353,23 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
 }
 
 
+static bool
+vmm_is_reserved_unit(vm_heap_t *vmh, vm_addr_t p, size_t size)
+{
+	size = ALIGN_FOEWARD(size, VMM_BLOCK_SIZE);
+
+	if(p < vmh->start_addr || p> vmh->end_addr /* overflow */ ||
+	   p + size > vmh->end_addr )
+		return false;
+
+    ASSERT(CHECK_TRUNCATE_TYPE_uint(size/VMM_BLOCK_SIZE));
+    ASSERT(bitmap_are_reserved_blocks(vmh->blocks, vmh->num_blocks, 
+                                      vmm_addr_to_block(vmh, p),
+                                      (uint)size/VMM_BLOCK_SIZE));
+    return true;
+}
+
+
 static inline vm_addr_t
 vmm_block_to_addr(vm_heap_t *vmh, uint block)
 {
@@ -548,20 +565,130 @@ heap_low_on_memory()
 static inline void
 accout_for_memory(void *p, size_t size, uint prot, bool add_vm _IF_DEBUG(char* comment))
 {
-	/* need to be filled up */
+	STATS_ADD_PEAK(memory_capacity, size);
+
+	/* areas inside the vmheap reservation are not added to the list */
+	if(vmm_is_reserved_unit(&heapmgt->vmheap, p, size))
+		return;
+	
+	if(add_vm)
+	{
+		add_dentre_vm_area(p, ((app_pc)p) + size, prot, false _IF_DEBUG(comment));
+	}
+	else
+	{
+		mark_dentre_vm_areas_stale();
+		ASSERT(TESTALL(MEMPROT_READ | MEMPROT_WRITE, prot));
+	}
 }
 
+static inline bool
+vmm_heap_commit(vm_addr_t p, size_t size, uint prot, heap_error_code_t * error_code)
+{
+	bool res = os_heap_commit(p, size, prot, error_code);
+
+	/* need to be filled up */
+	/* reset setting */
+
+	/* need to be filled up */
+	/* retry */
+
+	return res;
+}
+
+/* Caller is required to handle thread synchronization and to update dynamo vm areas.
+ * size must be PAGE_SIZE-aligned.
+ * Returns NULL if fails to allocate memory!
+ */
+static void *
+vmm_heap_alloc(size_t size, uint prot, heap_error_code_t *error_code)
+{
+	vm_addr_t p =  vmm_heap_reserve(size, error_code, TEST(MEMPROT_EXEC, prot));
+	if(!p)
+		return NULL;
+
+	if(!vmm_heap_commit(p, size, prot, error_code))
+		return NULL;
+
+	return p;
+}
+
+
+/* we indirect all os memory requests through here so we have a central place
+ * to handle the out-of-memory condition.
+ * add_vm MUST be false iff this is heap memory, which is updated separately.
+ */
 static void *
 get_real_memory(size_t size, uint prot, bool add_vm _IF_DEBUG(comment))
 {
-	/* need to be filled up */
+	void *p;
+	heap_error_code_t error_code;
+
+	size = ALIGN_FORWARD(size, PAGE_SIZE);
+
+	/* memory alloc/dealloc and updating DR list must be atomic */
+	dentre_vm_areas_lock();
+
+	p = vmm_heap_alloc(size, prot, &error_code);
+	if(p == NULL)
+	{
+        SYSLOG_INTERNAL_WARNING_ONCE("Out of memory -- cannot reserve or "
+                                     "commit %dKB.  Trying to recover.", size/1024);
+        /* we should be ok here, shouldn't come in here holding global_alloc_lock
+         * or heap_unit_lock w/o first having grabbed DR areas lock
+         */
+		ASSERT(safe_to_allocate_or_free_heap_units());
+
+		heap_low_on_memory();
+		fcache_low_on_memory();
+
+        /* try again
+         * FIXME: have more sophisticated strategy of freeing a little, then getting
+         * more drastic with each subsequent failure
+         * FIXME: can only free live fcache units for current thread w/ current
+         * impl...should we wait a while and try again if out of memory, hoping
+         * other threads have freed some?!?!
+         */
+		p = vmm_heap_alloc(size, prot, &error_code);
+		if(p == NULL)
+		{
+			report_low_on_memory(OOM_RESERVE, error_code);
+		}
+        SYSLOG_INTERNAL_WARNING_ONCE("Out of memory -- but still alive after "
+                                     "emergency free.");
+	}
+
+	accout_for_memory(p, size, prot, add_vm _IF_DEBUG(comment));
+	dentre_vm_areas_unlock();
+
+	return p;
+
 }
 
 
 static void
-extent_commitment(vm_addr_t p, size_t size, uint prot, bool initial_commit)
+extend_commitment(vm_addr_t p, size_t size, uint prot, bool initial_commit)
 {
-	/* need to be filled up */
+	heap_error_code_t error_code;
+
+	ASSERT(ALIGNED(p, PAGE_SIZE));
+	size = ALIGN_FORWARD(size, PAGE_SIZE);
+
+	if(!vmm_heap_commit(p, size, prot, &error_code))
+	{
+        SYSLOG_INTERNAL_WARNING_ONCE("Out of memory - cannot extend commit "
+                                     "%dKB. Trying to recover.", size/1024);
+        heap_low_on_memory();
+        fcache_low_on_memory();
+        /* see low-memory ideas in get_real_memory */
+        if (!vmm_heap_commit(p, size, prot, &error_code)) {
+            report_low_on_memory(initial_commit ? OOM_COMMIT : OOM_EXTEND, 
+                                 error_code);
+        }
+
+        SYSLOG_INTERNAL_WARNING_ONCE("Out of memory in extend - still alive "
+                                     "after emergency free.");
+	}
 }
 
 /* a wrapper around get_real_memory that adds a guard page on each side of the requested unit.

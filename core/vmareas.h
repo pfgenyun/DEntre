@@ -20,11 +20,13 @@
 #ifndef _VMAREAS_H_
 #define _VMAREAS_H_
 
+#include "globals.h"
 void 
 dentre_vm_areas_lock(void);
 
 void 
 dentre_vm_areas_unlock(void);
 
+bool add_dentre_vm_area(app_pc start, app_pc end, uint prot, bool unmod_image _IF_DEBUG(char *comment));
 
 #endif
