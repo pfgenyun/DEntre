@@ -114,6 +114,15 @@ typedef int		bool;
 #endif
 
 
+#ifdef N64
+# define POINTER_MAX ULLONG_MAX
+# define SSIZE_T_MAX LLONG_MAX
+# define POINTER_MAX_32BIT ((ptr_uint_t)UINT_MAX) 
+#else
+# define POINTER_MAX UINT_MAX
+# define SSIZE_T_MAX INT_MAX
+#endif
+
 #define PTR_UINT_0       ((ptr_uint_t)0U)
 #define PTR_UINT_1       ((ptr_uint_t)1U)
 #define PTR_UINT_MINUS_1 ((ptr_uint_t)-1)

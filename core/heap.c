@@ -369,6 +369,21 @@ vmm_is_reserved_unit(vm_heap_t *vmh, vm_addr_t p, size_t size)
     return true;
 }
 
+bool
+is_vmm_reserved_address(byte *pc, size_t size)
+{
+    ASSERT(heapmgt != NULL);
+    /* Case 10293: we don't call vmm_is_reserved_unit to avoid its
+     * assert, which we want to maintain for callers only dealing with
+     * DR-allocated addresses, while this routine is called w/ random
+     * addresses
+     */
+    return (heapmgt != NULL && heapmgt->vmheap.start_addr != NULL &&
+            pc >= heapmgt->vmheap.start_addr &&
+            /* i#14: workaround for gcc 4.3.0 bug */
+            (pc < ((byte *)POINTER_MAX) - size) /* no overflow */ &&
+            (pc + size) <= heapmgt->vmheap.end_addr);
+}
 
 static inline vm_addr_t
 vmm_block_to_addr(vm_heap_t *vmh, uint block)

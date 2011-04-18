@@ -44,6 +44,8 @@ extern de_statistics_t *stats;
 
 struct _dcontext_t;
 typedef struct _dcontext_t dcontext_t;
+struct vm_area_vector_t;
+typedef struct vm_area_vector_t vm_area_vector_t;
 
 struct _dcontext_t
 {

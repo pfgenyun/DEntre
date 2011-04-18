@@ -639,6 +639,7 @@ void mutex_unlock(mutex_t *lock);
 
 /* need to be filled up */
 #define OWN_MUTEX(m)	
+#define ASSERT_OWN_WRITE_LOCK(pred, rw)	
 
 /* need to be filled up */
 #define DO_ONCE(statement)	

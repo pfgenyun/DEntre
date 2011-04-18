@@ -80,6 +80,8 @@ void *global_unprotected_heap_alloc(size_t size HEAPACCT(which_heap_t which));
 
 bool schedule_reset(uint target);
 
+bool is_vmm_reserved_address(byte *pc, size_t size);
+
 #define UNPROTECTED_LOCAL_ALLOC(dc, ...)	global_unprotected_heap_alloc(__VA_ARGS__)
 
 #define PROTECTED	true

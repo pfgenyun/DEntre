@@ -84,15 +84,26 @@ const char *get_application_short_name(void);
 uint query_time_seconds();
 
 
-#define DR_MEMPROT_NONE  0x00 /**< No read, write, or execute privileges. */
-#define DR_MEMPROT_READ  0x01 /**< Read privileges. */
-#define DR_MEMPROT_WRITE 0x02 /**< Write privileges. */
-#define DR_MEMPROT_EXEC  0x04 /**< Execute privileges. */
+#define DE_MEMPROT_NONE  0x00 /**< No read, write, or execute privileges. */
+#define DE_MEMPROT_READ  0x01 /**< Read privileges. */
+#define DE_MEMPROT_WRITE 0x02 /**< Write privileges. */
+#define DE_MEMPROT_EXEC  0x04 /**< Execute privileges. */
 
-#define MEMPROT_NONE  DR_MEMPROT_NONE
-#define MEMPROT_READ  DR_MEMPROT_READ
-#define MEMPROT_WRITE DR_MEMPROT_WRITE
-#define MEMPROT_EXEC  DR_MEMPROT_EXEC
+#define MEMPROT_NONE  DE_MEMPROT_NONE
+#define MEMPROT_READ  DE_MEMPROT_READ
+#define MEMPROT_WRITE DE_MEMPROT_WRITE
+#define MEMPROT_EXEC  DE_MEMPROT_EXEC
+
+
+/**
+ * Flags describing memory used by de_query_memory_ex().
+ */
+typedef enum {
+    DE_MEMTYPE_FREE,  /**< No memory is allocated here */
+    DE_MEMTYPE_IMAGE, /**< An executable file is mapped here */
+    DE_MEMTYPE_DATA,  /**< Some other data is allocated here */
+} dr_mem_type_t;
+
 
 /***************************************************************************
  * SELF_PROTECTION
