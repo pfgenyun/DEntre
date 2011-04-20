@@ -170,6 +170,21 @@ static bool heap_exiting = false;
 DECLARE_CXTSWPROT_VAR(static recursive_lock_t heap_unit_lock,
                       INIT_RECURSIVE_LOCK(heap_unit_lock));
 
+/* N.B.: if these two locks are ever owned at the same time, the convention is
+ * that global_alloc_lock MUST be grabbed first, to avoid deadlocks
+ */
+/* separate lock for global heap access to avoid contention between local unit
+ * creation and global heap alloc
+ * must be recursive so that heap_vmareas_synch_units can hold it and heap_unit_lock
+ * up front to avoid deadlocks, and still allow vmareas to global_alloc --
+ * BUT we do NOT want global_alloc() to be able to recurse!
+ * FIXME: either find a better solution to the heap_vmareas_synch_units deadlock
+ * that is as efficient, or find a way to assert that the only recursion is
+ * from heap_vmareas_synch_units to global_alloc
+ */
+DECLARE_CXTSWPROT_VAR(static recursive_lock_t global_alloc_lock,
+                      INIT_RECURSIVE_LOCK(global_alloc_lock));
+
 enum
 {
 	VMM_BLOCK_SIZE = 16 * 1024		/* 16K */
@@ -957,14 +972,110 @@ heap_init(void)
 
 }
 
+
+/* allocate storage on the DR heap
+ * returns NULL iff caller needs to grab dynamo_vm_areas_lock() and retry
+ */
+static void *
+common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
+{
+	/*  nedd to be filled up */
+	/* important function */
+}
+
+
+/* shared between global and global_unprotected */
+static void *
+common_global_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t chich))
+{
+	void *p;
+	acquire_recursive_lock(&global_alloc_lock);
+	p = common_heap_alloc(tu, size HEAPACCT(which));
+	release_recursive_lock(&global_alloc_lock);
+
+	if(p == NULL)
+	{
+        /* circular dependence solution: we need to hold DR lock before
+         * global alloc lock -- so we back out, grab it, and retry
+         */
+		dentre_vm_areas_lock();
+		acquire_recursive_lock(&global_alloc_lock);
+		p = common_heap_alloc(tu, size HEAPACCT(which));
+		release_recursive_lock(&global_alloc_lock);
+		dentre_vm_area_unlock();
+	}
+
+	ASSERT(p != NULL);
+
+	return p;
+}
+
+
+/* these functions use the global heap instead of a thread's heap: */
+void *
+global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
+{
+	void *p = common_global_heap_alloc(&heapmgt->global_units, size HEAPACCT(which));
+
+	ASSERT(p != NULL);
+	LOG(GLOBAL, LOG_HEAP, 6, "\nglobal alloc: "PFX" (%d bytes)\n", p, size);
+
+	return p;
+
+}
+
 void *
 heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
 {
-	/* need to be filled up */
+	thread_units_t *tu;
+	void *ret_val;
+
+	if(dcontext == GLOBAL_DCONTEXT)
+		return global_heap_alloc(size HEAPACCT(which));
+
+	tu = ((thread_heap_t *)dcontext->heap_field)->local_heap;
+
+	ret_val = common_heap_alloc(tu, size HEAPACCT(which));
+
+	ASSERT(ret_val != NULL);
+
+	return ret_val;
 }
 
 void *
 global_unprotected_heap_alloc(size_t size HEAPACCT(which_heap_t which))
 {
-	/* need to be filled up */
+	void *p = common_global_heap_alloc(&heapmgt->global_unprotected_units,
+									   size HEAPACCT(which));
+
+    ASSERT(p != NULL);
+    LOG(GLOBAL, LOG_HEAP, 6, "\nglobal unprotected alloc: "PFX" (%d bytes)\n", p, size);
+
+    return p;
+}
+
+
+
+/* We cannot incrementally keep dynamo vm area list up to date due to
+ * circular dependencies bet vmareas and global heap (trust me, I've tried
+ * to support it with reentrant routines and recursive locks, the hard part
+ * is getting add_vm_area to be reentrant or to queue up adding areas,
+ * I think this solution is much more elegant, plus it avoids race conditions
+ * between DR memory allocation and the vmareas list by ensuring the list
+ * is up to date at the exact time of each query).
+ * Instead we on-demand walk the units.
+ * Freed units can usually be removed incrementally, except when we
+ * hold the heap_unit_lock when we run out of memory -- when we set
+ * a flag telling the caller of this routine to remove all heap areas
+ * from the vm list prior to calling us to add the real ones back in.
+ * Re-adding everyone is the simplest policy, so we don't have to keep
+ * track of who's been added.
+ * The caller is assumed to hold the dynamo vm areas write lock.
+ */
+void 
+heap_vmareas_synch_units()
+{
+	/* need to filled up */
+	/* clean the heap unit in vmareas list and reconstruct it in vmareas*/
+	/* not a good idea */
 }

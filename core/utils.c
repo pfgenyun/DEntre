@@ -106,6 +106,12 @@ mutex_unlock(mutex_t *lock)
 	/* need to be filled up */
 }
 
+bool 
+self_owns_write_lock(read_write_lock_t *rw)
+{
+	/* need to be filled up */
+}
+
 static uint spinlock_count = 0;
 DECLARE_FREQPROT_VAR(static uint random_seed, 1234);
 DEBUG_DECLARE(static uint initial_random_seed);

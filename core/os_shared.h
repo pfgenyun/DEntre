@@ -35,6 +35,8 @@ void * os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_co
 
 bool os_heap_commit(void *p, size_t size, uint prot, heap_error_code_t *error_code);
 
+void update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type);
+
 /* file operations */
 /* defaults to read only access, if write is not set ignores others */
 #define OS_OPEN_READ        0x01

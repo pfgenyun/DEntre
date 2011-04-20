@@ -484,3 +484,10 @@ os_heap_commit(void *p, size_t size, uint prot, heap_error_code_t *error_code)
 }
 
 
+void
+update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
+{
+	/* need to be filled up */
+	/* vmarea managment  */
+}
+

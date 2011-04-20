@@ -637,6 +637,8 @@ void read_unlock(read_write_lock_t *rw);
 void mutex_lock(mutex_t *lock);
 void mutex_unlock(mutex_t *lock);
 
+bool self_owns_write_lock(read_write_lock_t * rw);
+
 /* need to be filled up */
 #define OWN_MUTEX(m)	
 #define ASSERT_OWN_WRITE_LOCK(pred, rw)	

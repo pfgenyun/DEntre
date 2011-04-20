@@ -40,6 +40,11 @@ bool dentre_exited = false;
 bool post_exec = false;
 static uint starttime = 0;
 
+DECLARE_FREQPROT_VAR(static int num_known_threads, 0);
+/*vfork threads that execve need to be separately delay-freed */
+DECLARE_FREQPROT_VAR(static int num_execve_threads, 0);
+
+
 START_DATA_SECTION(NEVER_PROTECTED_SECTION, "w")
 
 static de_statistics_t nonshared_stats	VAR_IN_SECTION(NEVER_PROTECTED_SECTION)
@@ -227,4 +232,11 @@ data_section_init(void)
             }
 		}
 	});
+}
+
+
+int
+get_num_threads(void)
+{
+	return num_known_threads - num_execve_threads;
 }

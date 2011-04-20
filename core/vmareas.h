@@ -35,7 +35,7 @@ struct vm_area_vector_t
 {
 	struct vm_area_t *buf;
 	int size;			/* capacity */
-	int length;			/* ? */
+	int length;			/* num of buf[i] */
 	uint flags;			/* VECTOR_* flags */
 
     /* often thread-shared, so needs a lock
@@ -82,7 +82,6 @@ dentre_vm_areas_unlock(void);
 bool 
 add_dentre_vm_area(app_pc start, app_pc end, uint prot, bool unmod_image _IF_DEBUG(char *comment));
 
-void 
-up_date_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type);
+void mark_dentre_vm_areas_stale(void);
 
 #endif

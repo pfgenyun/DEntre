@@ -88,6 +88,36 @@ enum {
 };
 
 
+
+/* Our executable area list has three types of areas.  Each type can be merged
+ * with adjacent areas of the same type but not with any of the other types!
+ * 1) originally RO code   == we leave alone
+ * 2) originally RW code   == we mark RO
+ * 3) originally RW code, written to from within itself  == we leave RW and sandbox
+ * We keep all three types in the same list b/c any particular address interval
+ * can only be of one type at any one time, and all three are executable, meaning
+ * code cache code was copied from there.
+ */
+typedef struct vm_area_t
+{
+	app_pc start;
+	app_pc end;
+
+	uint vm_flags;
+	uint frag_flags;
+
+#ifdef DEBUG
+	char *comment;
+#endif
+
+	union
+	{
+		fragment_t *frags;
+		void *client;
+	}custom;
+}vm_area_t;
+
+
 static vm_area_vector_t *dentre_areas;
 
 
@@ -100,6 +130,19 @@ static vm_area_vector_t *dentre_areas;
  * so the vector is considered uptodate until we run out of reservation
  */
 DECLARE_FREQPROT_VAR(static bool dentre_areas_uptodate, true);
+
+
+#ifdef DEBUG
+# define ASSERT_VMAREA_VECTOR_PROTECTED(v, RW) do {                    \
+    ASSERT_OWN_##RW##_LOCK(SHOULD_LOCK_VECTOR(v) &&                    \
+                           !dynamo_exited, &(v)->lock);                \
+    if ((v) == dynamo_areas) {                                         \
+        ASSERT(dynamo_areas_uptodate || dynamo_areas_synching);        \
+    }                                                                  \
+} while (0);
+#else
+# define ASSERT_VMAREA_VECTOR_PROTECTED(v, RW) /* nothing */
+#endif
 
 
 void 
@@ -141,7 +184,59 @@ static void
 add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, 
 			uint vm_flags, uint frag_flags, void * data _IF_DEBUG(char *comment))
 {
-	/* need to be filled up */
+	/* need to be filled up  */
+	/* important function */
+}
+
+
+static bool
+binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area/* out*/,
+			  int *index/* out */, bool first)
+{
+	 /* BINARY SEARCH -- assumes the vector is kept sorted by add & remove! */
+    int min = 0;
+    int max = v->length - 1;
+
+    ASSERT(start < end || end == NULL /* wraparound */);
+
+    ASSERT_VMAREA_VECTOR_PROTECTED(v, READWRITE);
+    LOG(GLOBAL, LOG_VMAREAS, 7, "Binary search for "PFX"-"PFX" on this vector:\n",
+        start, end);
+    DOLOG(7, LOG_VMAREAS, { print_vm_areas(v, GLOBAL); });
+    /* binary search */
+    while (max >= min) {
+        int i = (min + max) / 2;
+        if (end != NULL && end <= v->buf[i].start)
+            max = i - 1;
+        else if (start >= v->buf[i].end)
+            min = i + 1;
+        else {
+            if (area != NULL || index != NULL) {
+                if (first) {
+                    /* caller wants 1st matching area */
+                    for (; i >= 1 && v->buf[i-1].end > start; i--)
+                        ;
+                }
+                /* returning pointer to volatile array dangerous -- see comment above */
+                if (area != NULL)
+                    *area = &(v->buf[i]);
+                if (index != NULL)
+                    *index = i;
+            }
+            LOG(GLOBAL, LOG_VMAREAS, 7, "\tfound "PFX"-"PFX" in area "PFX"-"PFX"\n",
+                start, end, v->buf[i].start, v->buf[i].end);
+            return true;
+        }
+    }
+    /* now max < min */
+    LOG(GLOBAL, LOG_VMAREAS, 7, "\tdid not find "PFX"-"PFX"!\n", start, end);
+    if (index != NULL) {
+        ASSERT((max < 0 || v->buf[max].end <= start) &&
+               (min > v->length - 1 || v->buf[min].start >= end));
+        *index = max;
+    }
+    return false;
+
 }
 
 /* returns true if the passed in area overlaps any known executable areas
@@ -150,7 +245,7 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
 static bool 
 vm_area_overlap(vm_area_vector_t *v, app_pc start, app_pc end)
 {
-	/* need to be filled up */
+	return binary_search(v, start, end, NULL, NULL, false);
 }
 
 
@@ -163,8 +258,48 @@ vm_area_overlap(vm_area_vector_t *v, app_pc start, app_pc end)
 static void
 update_dentre_vm_areas(bool have_writelock)
 {
-	/* need to be filled up */
+	if(dentre_areas_uptodate)
+		return;
+
+	if(!have_writelock)
+		dentre_vm_areas_lock();
+
+	ASSERT(dentre_areas != NULL);
+	ASSERT_OWN_WRITE_LOCK(true, &dentre_areas->lock);
+
+    /* avoid uptodate asserts from heap needed inside add_vm_area */
+    DODEBUG({ dentre_areas_synching = true; });
+    /* check again with lock, and repeat until done since
+     * could require more memory in the middle for vm area vector
+     */ 
+	while(!dentre_areas_uptodate)
+	{
+		dentre_areas_uptodate = true;
+		heap_vmareas_synch_units();
+        LOG(GLOBAL, LOG_VMAREAS, 3, "after updating dynamo vm areas:\n");
+        DOLOG(3, LOG_VMAREAS, { print_vm_areas(dynamo_areas, GLOBAL); });
+	}
+    DODEBUG({ dynamo_areas_synching = false; });
+
+	if(!have_writelock)
+		dentre_vm_areas_lock();
 }
+
+
+/* Used for DR heap area changes as circular dependences prevent
+ * directly adding or removing DR vm areas->
+ * Must hold the DR areas lock across the combination of calling this and
+ * modifying the heap lists.
+ */
+void
+mark_dentre_vm_areas_stale()
+{
+    /* ok to ask for locks or mark stale before dynamo_areas is allocated */
+    ASSERT((dentre_areas == NULL && get_num_threads() <= 1 /*must be only DR thread*/)
+           || self_owns_write_lock(&dynamo_areas->lock));
+    dentre_areas_uptodate = false;
+}
+
 
 /* add dentre-internal area to the dentre-internal area list
  * this should be atomic wrt the memory being allocated to avoid races
@@ -196,8 +331,3 @@ add_dentre_vm_area(app_pc start, app_pc end, uint prot, bool unmod_image _IF_DEB
 }
 
 
-void 
-up_date_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
-{
-	/* need to be filled up */
-}

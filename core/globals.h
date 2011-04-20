@@ -46,12 +46,19 @@ struct _dcontext_t;
 typedef struct _dcontext_t dcontext_t;
 struct vm_area_vector_t;
 typedef struct vm_area_vector_t vm_area_vector_t;
+struct _fragment_t;
+typedef struct _fragment_t fragment_t;
 
 struct _dcontext_t
 {
 	/* need to be filled up */
+	void *		heap_field;
+
 };
 
+
+
+int get_num_threads(void);
 
 #define GLOBAL_DCONTEXT	((dcontext_t *)PTR_UINT_MINUS_1)
 
