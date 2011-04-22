@@ -29,6 +29,7 @@
 #	include "perfctr.h"
 #endif
 #include "heap.h"
+#include "moduledb.h"
 
 /* global thread-shared var */
 bool dentre_initialized = false;
@@ -190,6 +191,23 @@ dentre_app_init(void)
 	vmm_heap_init();
 	heap_init();
 	dentre_heap_initialized = true;
+
+	/* The process start event should be done after os_init() but before
+	 * process_control_int() because the former initializes event logging
+	 * and the latter can kill the process if a violation occurs.
+	 */
+	SYSLOG(SYSLOG_INFORMATION,
+	       IF_CLIENT_INTERFACE_ELSE(INFO_PROCESS_START_CLIENT, INFO_PROCESS_START),
+	       IF_CLIENT_INTERFACE_ELSE(3, 2),
+	       get_application_name(), get_application_pid()
+	       _IF_NOT_CLIENT_INTERFACE(get_application_md5()));
+
+#ifdef PROCESS_CONTROL
+    if(IS_PROCESS_CONTROL_ON())    /* Case 8594. */
+        process_control_init();
+#endif
+
+	dentre_vm_areas_init();
 
 	return SUCCESS;
 

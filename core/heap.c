@@ -920,7 +920,11 @@ threadunits_init(dcontext_t *dcontext, thread_units_t *tu, size_t size)
 void
 heap_reset_init()
 {
-	/*need to be filled up */
+	if(DENTRE_OPTION(enable_reset))
+	{
+		threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_nonpersistent_units,
+						 GLOBAL_UNIT_MIN_SIZE);
+	}
 }
 
 void
@@ -979,8 +983,139 @@ heap_init(void)
 static void *
 common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
 {
-	/*  nedd to be filled up */
-	/* important function */
+	heap_unit_t *u = tu->cur_unit;
+	heap_pc p = NULL;
+	int bucket  = 0;
+	size_t alloc_size, aligned_size;
+
+
+#if 0		/* hard to understand */
+
+#if define(DEBUG_MEMORY) && define(DEBUG)
+	/* need to be filled up */
+#endif
+
+	ASSERT(size > 0);
+	ASSERT(size < MAX_VALID_HEAP_ALLOCATION && "potential integer overflow");
+
+	if(size > MAX_VALID_HEAP_ALLOCATION)
+		return NULL;
+
+    /* NOTE - all of our buckets are sized to preserve alignment, so this can't change
+     * which bucket is used. */
+	aligned_size = ALIGNED_FORWARD(size, HEAP_ALIGNMENT);
+	while(aligned_size > BLOCK_SIZES[bucket])
+		bucket ++;
+	if(bucket == BLOCK_SIZE-1)
+		alloc_size = aligned_size + HEADER_SIZE;
+	else
+		alloc_size = BLOCK_SIZES[bucket];
+	ASSERT(size <= alloc_size);
+
+#ifdef DEBUG_MEMORY
+    /*  use original calculated size for later check */
+    check_alloc_size = alloc_size;
+#endif
+
+	if(alloc_size > MAXROOM)
+	{
+        /* too big for normal unit, build a special unit just for this allocation */
+        /* don't need alloc_size or even aligned_size, just need size */
+		heap_unit_t *new_unit, *prev;
+		/* we page-align to avoid wasting space if unit gets reused later */
+		size_t unit_size = ALIGNED_FORWARD(size + sizeof(heap_unit_t), PAGE_SIZE);
+
+		ASSERT(size < unit_size);
+
+		if(!safe_to_allocate_or_free_heap_units())
+			return NULL;
+		
+        /* Can reuse a dead unit if large enough: we'll just not use any
+         * excess size until this is freed and put back on dead list.
+         * (Currently we don't put oversized units on dead list though.)
+         */
+		new_unit = heap_creat_unit(tu, unit_size, false/* can be reuse */);
+		/* we want to commit the whole alloc right away */
+		heap_unit_extend_commitment(new_unit, size, MEMPROT_READ|MEMPROT_WRITE);
+
+		prev = tu->top_unit;
+		alloc_size = size;
+        /* insert prior to cur unit (new unit will be full, so keep cur unit
+         * where it is)
+         */
+		while(prev != u && prev->next_local != u)
+		{
+			ASSERT(prev != NULL && prev->next_local != NULL);
+			prev = prev->next_local;
+		}
+		if(prev == u)
+		{
+			ASSERT(prev == tu->top_unit);
+			tu->top_unit = new_unit;
+		}
+		else
+		{
+			prev->next_local = new_unit;
+		}
+		new_unit->next_local = u;
+
+#ifdef DEBUG_MEMORY
+        LOG(THREAD, LOG_HEAP, 3,
+            "\tCreating new oversized heap unit %d (%d [/%d] KB)\n",
+            new_unit->id, UNIT_COMMIT_SIZE(new_unit)/1024,
+            UNIT_RESERVED_SIZE(new_unit)/1024);
+#endif
+
+		p = new_unit->start_pc;
+		new_unit->cur_pc += size;
+
+		ACCOUNT_FOR_ALLOC(alloc_new, tu, which, size, size); /* use alloc_size? */
+		goto done_allocating;
+	}
+
+	if(tu->free_list[bucket] != NULL)
+	{
+		if(bucket == BLOCK_TYPES-1)
+		{
+			/* variable-length blocks, try to find one big enough */
+			size_t sz;
+			heap_pc next = tu->free_list[bucket];
+			heap_pc prev;
+
+			/* need to be filled up */
+			/* hard to understand */
+		}
+		else
+		{
+			/* fixed-length free block available */
+			p = tu->free_list[bucket];
+			tu->free_list[bucket] = *((heaP_pc *)p);
+			ASSERT(ALIGNED(tu->free_list[bucket], HEAP_ALIGNMENT));
+#ifdef DEBUG_MEMORY
+            /* ensure memory we got from the free list is in a heap unit */
+            ASSERT(find_heap_unit(tu, p, alloc_size) != NULL);
+#endif
+            ACCOUNT_FOR_ALLOC(alloc_reuse, tu, which, alloc_size, aligned_size);
+		}
+	}
+
+	if(p == NULL)
+	{
+	
+	}
+
+	/* need to be filled up */
+	/* DOSTATS() */
+
+done_allocating:
+
+#ifdef DEBUG_MEMORY
+	/* need to be filled up */
+#endif
+
+#endif
+
+	return p;
 }
 
 

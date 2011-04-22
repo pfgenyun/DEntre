@@ -26,6 +26,8 @@
 /* avoid mistake of lower-case assert */
 #define assert assert_no_good_use_ASSERT_instead
 
+#define SYSLOG(type, id, sub, ...)	/* need to be filled up */
+
 #ifdef DEBUG
 # ifdef INTERNAL
 /* cast to void to avoid gcc warning "statement with no effect" when used as
@@ -624,6 +626,18 @@ bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, 
 		CONTENTION_EVENT_NOT_CREATED, CONTENTION_EVENT_NOT_CREATED       \
    }
 
+
+#define ASSIGN_INIT_READWRITE_LOCK_FREE(var, lock) do {                 \
+     read_write_lock_t initializer_##lock = STRUCTURE_TYPE(read_write_lock_t)   \
+      {INIT_LOCK_NO_TYPE(                                               \
+            #lock "(readwrite)" "@" __FILE__ ":" STRINGIFY(__LINE__),   \
+                                                 LOCK_RANK(lock)),      \
+       0, INVALID_THREAD_ID,                                            \
+       0,                                                               \
+       CONTENTION_EVENT_NOT_CREATED, CONTENTION_EVENT_NOT_CREATED       \
+      };                                                                \
+     var = initializer_##lock;                                          \
+   } while (0)
 
 void acquire_resursive_lock(recursive_lock_t *lock);
 void release_resursive_lock(recursive_lock_t *lock);

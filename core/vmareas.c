@@ -158,6 +158,22 @@ dentre_vm_areas_unlock()
 }
 
 
+/* this routine does NOT initialize the rw lock!  use VMVECTOR_ALLOC_VECTOR instead */
+vm_area_vector_t *
+vmvector_creat_vector(dcontext_t *dcontext, uint flags)
+{
+	vm_area_vector_t *v = 
+		HEAP_TYPE_ALLOC(dcontext, vm_area_vector_t, ACCT_VMAREAS, PROTECTED);
+}
+
+
+void 
+dentre_vm_areas_init()
+{
+	VMVECTOR_ALLOC_VECTOR(dentre_areas, GLOBAL_DCONTEXT, VECTOR_SHARED, dentre_areas);
+}
+
+
 
 /* Assumes caller holds v->lock, if necessary.
  * Does not return the area added since it may be merged or split depending

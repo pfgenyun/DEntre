@@ -22,6 +22,20 @@
 
 #include "globals.h"
 
+enum {
+    /* these are bitmask flags */
+    VECTOR_SHARED        = 0x0001,
+    VECTOR_FRAGMENT_LIST = 0x0002, /* for vmareas.c-only use */
+    /* never merge adjacent regions */
+    VECTOR_NEVER_MERGE_ADJACENT = 0x0004,
+    /* results in an assert if a new region overlaps existing */
+    VECTOR_NEVER_OVERLAP = 0x0008,
+    /* case 10335: if a higher-level lock is being used, set this
+     * flag to avoid the redundant vector-level lock
+     */
+    VECTOR_NO_LOCK       = 0x0010,
+};
+
 
 /* This vector data structure is only exposed here for quick length checks.
  * For external (non-vmareas.c) users, the vmvector_* interface is the
@@ -72,6 +86,23 @@ struct vm_area_vector_t
      */
 	void *(*merge_payload_func)(void *dst, void *src);
 };
+
+
+/* vm_area_vectors should NOT be declared statically if their locks need to be
+ * accessed on a regular basis.  Instead, allocate them on the heap with this macro:
+ */
+#define VMVECTOR_ALLOC_VECTOR(v, dc, flags, lockname)			\
+	do															\
+	{															\
+		v = vmvector_creat_vector((dc), (flags));				\
+		ASSIGN_INIT_READWRITE_LOCK_FREE((v)->lock, lockname);	\
+	}while(0);
+
+
+
+/* this routine does NOT initialize the rw lock!  use VMVECTOR_ALLOC_VECTOR instead */
+vm_area_vector_t *
+vmvector_create_vector(dcontext_t *dcontext, uint flags);
 
 void 
 dentre_vm_areas_lock(void);
