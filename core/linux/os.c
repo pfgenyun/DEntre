@@ -25,14 +25,17 @@
 #include <sys/sysinfo.h>	/* for get_nprocs_num  */
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/utsname.h>
 
 #include "../globals.h"
 #include "syscall.h"
 #include "../utils.h"
 #include "../mips/proc.h"
+#include "os_private.h"
+#include "../vmareas.h"
 
 
-/* must be after X64 is defined */
+/* must be after N64 is defined */
 #ifdef N64
 # define SYSNUM_STAT SYS_stat
 # define SYSNUM_FSTAT SYS_fstat
@@ -41,10 +44,103 @@
 # define SYSNUM_FSTAT SYS_fstat64
 #endif
 
+/* does the kernel provide tids that must be used to distinguish threads in a group? */
+static bool kernel_thread_groups;
+
+static bool kernel_64bit;
+
+pid_t pid_cached;
+
+
+/* Track all memory regions seen by DR. We track these ourselves to prevent
+ * repeated reads of /proc/self/maps (case 3771). An allmem_info_t struct is
+ * stored in the custom field.
+ * all_memory_areas is updated along with dynamo_areas, due to cyclic
+ * dependencies.
+ */
+static vm_area_vector_t *all_memory_areas;
 
 static int
 get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/,
                    char *fullpath/*OPTIONAL OUT*/, size_t path_size);
+
+static void
+get_uname(void)
+{
+    /* assumption: only called at init, so we don't need any synch
+     * or .data unprot
+     */
+	static struct utsname uinfo;
+	
+	DEBUG_DECLARE(int res =)
+		dentre_syscall(SYS_uname, 1, (ptr_uint_t)&uinfo);
+
+    LOG(GLOBAL, LOG_TOP, 1, "uname:\n\tsysname: %s\n", uinfo.sysname);
+    LOG(GLOBAL, LOG_TOP, 1, "\tnodename: %s\n", uinfo.nodename);
+    LOG(GLOBAL, LOG_TOP, 1, "\trelease: %s\n", uinfo.release);
+    LOG(GLOBAL, LOG_TOP, 1, "\tversion: %s\n", uinfo.version);
+    LOG(GLOBAL, LOG_TOP, 1, "\tmachine: %s\n", uinfo.machine);
+    if (strncmp(uinfo.machine, "mips64", sizeof("mips64")) == 0)
+        kernel_64bit = true;
+}
+
+
+/* vmvector callbacks */
+static void 
+allmem_info_free(void *data)
+{
+	/* need to be filled up */
+}
+
+static void *
+allmem_info_dup(void * data)
+{
+	/* need to be filled up */
+}
+
+static bool 
+allmem_should_merge(bool adjacent, void *data1, void *data2)
+{
+	/* need to be filled up  */
+}
+
+static void *
+allmem_info_merge(void *dst_data, void *src_data)
+{
+	/* need to be filled up */
+}
+
+
+/* os-specific initializations */
+void os_init(void)
+{
+	get_uname();
+
+    /* determine whether gettid is provided and needed for threads,
+     * or whether getpid suffices.  even 2.4 kernels have gettid
+     * (maps to getpid), don't have an old enough target to test this.
+     */
+	kernel_thread_groups = (dentre_syscall(SYS_gettid, 0) >= 0);
+    LOG(GLOBAL, LOG_TOP|LOG_STATS, 1, "thread id is from %s\n",
+        kernel_thread_groups ? "gettid" : "getpid");
+    ASSERT_CURIOSITY(kernel_thread_groups);
+
+	pid_cached = get_process_id();
+	signal_init();
+
+#ifdef PROFILE_RDTSC
+    if (dentre_options.profile_times) {
+        ASSERT_NOT_TESTED();
+        kilo_hertz = get_timer_frequency();
+        LOG(GLOBAL, LOG_TOP|LOG_STATS, 1, "CPU MHz is %d\n", kilo_hertz/1000);
+    }
+#endif /* PROFILE_RDTSC */
+
+	/* Need to be after heap_init */
+	VMVECTOR_ALLOC_VECTOR(all_memory_areas, GLOBAL_DCONTEXT, VECTOR_SHARED, all_memory_areas);
+	vmvector_set_callbacks(all_memory_areas, allmem_info_free, allmem_info_dup,
+						   allmem_should_merge, allmem_info_merge);
+}
 
 
 process_id_t

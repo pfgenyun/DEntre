@@ -17,21 +17,31 @@
  * and/or other materials provided with the distribution.
  */
 
+#include "globals.h"
+#include "vmareas.h"
+#include "heap.h"
+#include "utils.h"
+#include "module_shared.h"
 
-/*
- * proc.h - processor implementation specific interfaces
+
+/* Used for maintaining our module list.  Custom field points to
+ * further module information from PE/ELF headers.
+ * module_data_lock needs to be held when accessing the custom data fields.
+ * Kept on the heap for selfprot (case 7957).
+ * For Linux this is a vector of segments to handle non-contiguous
+ * modules (i#160/PR 562667).
  */
+vm_area_vector_t *loaded_module_areas;
 
 
-#ifndef _PROC_H_
-#define _PROC_H_	1
 
-#define PAGE_SIZE	(4 * 1024)
+void 
+modules_init()
+{
+	VMVECTOR_ALLOC_VECTOR(loaded_module_areas, GLOBAL_DCONTEXT,
+							/* case 10335: we always use module_data_lock */
+						  VECTOR_SHARED | VECTOR_NEVER_MERGE | VECTOR_NO_LOCK,
+						  loaded_module_areas);
 
-extern size_t cache_line_size;
-#define CACHE_LINE_SIZE	cache_line_size
-
-void proc_init(void);
-
-
-#endif
+	os_modules_init();
+}

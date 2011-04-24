@@ -20,3 +20,9 @@
 #include "../globals.h"
 
 size_t cache_line_size = 32;
+
+void 
+proc_init(void)
+{
+	/* need to be filled up */
+}

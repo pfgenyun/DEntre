@@ -145,6 +145,10 @@ DECLARE_FREQPROT_VAR(static bool dentre_areas_uptodate, true);
 #endif
 
 
+
+#define LOCK_VECTOR(v, release_lock, RW)	/* need to be filled up */
+#define UNLOCK_VECTOR(v, release_lock, RW)	/* need to be filled up */
+
 void 
 dentre_vm_areas_lock()
 {
@@ -164,6 +168,33 @@ vmvector_creat_vector(dcontext_t *dcontext, uint flags)
 {
 	vm_area_vector_t *v = 
 		HEAP_TYPE_ALLOC(dcontext, vm_area_vector_t, ACCT_VMAREAS, PROTECTED);
+}
+
+
+
+/****************************************************************************
+ * external interface to vm_area_vector_t 
+ *
+ * FIXME: add user data field to vector and to add routine
+ * FIXME: have init and destroy routines so don't have to expose
+ *        vm_area_vector_t struct or declare vector in this file
+ */
+
+void
+vmvector_set_callbacks(vm_area_vector_t *v,
+                       void (*free_func)(void*),
+                       void *(*split_func)(void*),
+                       bool (*should_merge_func)(bool, void*, void*),
+                       void *(*merge_func)(void*, void*))
+{
+    bool release_lock; /* 'true' means this routine needs to unlock */
+    ASSERT(v != NULL);
+    LOCK_VECTOR(v, release_lock, read);
+    v->free_payload_func = free_func;
+    v->split_payload_func = split_func;
+    v->should_merge_func = should_merge_func;
+    v->merge_payload_func = merge_func;
+    UNLOCK_VECTOR(v, release_lock, read);
 }
 
 

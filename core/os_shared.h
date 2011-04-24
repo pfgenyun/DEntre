@@ -30,6 +30,8 @@ enum {
 };
 typedef uint heap_error_code_t;
 
+void os_init(void);
+
 void * os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code, 
 		bool executable);
 

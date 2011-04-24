@@ -17,21 +17,12 @@
  * and/or other materials provided with the distribution.
  */
 
+#ifndef _MODULES_SHARED_H_
+#define _MODULES_SHARED_H_	1
 
-/*
- * proc.h - processor implementation specific interfaces
- */
+void modules_init(void);
 
 
-#ifndef _PROC_H_
-#define _PROC_H_	1
-
-#define PAGE_SIZE	(4 * 1024)
-
-extern size_t cache_line_size;
-#define CACHE_LINE_SIZE	cache_line_size
-
-void proc_init(void);
-
+void os_modules_init();
 
 #endif

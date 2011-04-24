@@ -55,6 +55,10 @@ ALL:
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} mips/proc.c              -c -o  ${OBJDIR}proc.o;			\
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} vmareas.c                -c -o  ${OBJDIR}vmareas.o;			\
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} fcache.c                 -c -o  ${OBJDIR}fcache.o;			\
+	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} moduledb.c               -c -o  ${OBJDIR}moduledb.o;		\
+	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} module_list.c            -c -o  ${OBJDIR}module_list.o;		\
+	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} linux/module.c           -c -o  ${OBJDIR}module.o;			\
+	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} linux/signal.c           -c -o  ${OBJDIR}signal.o;			\
 															\
 	cd ${OBJDIR};											 \
 	${CC} ${C_FLAG} ${LINK_FLAG} -nostartfiles  -o  libpreload.so $(OBJ_PRELOAD);		\

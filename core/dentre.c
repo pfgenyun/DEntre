@@ -30,6 +30,8 @@
 #endif
 #include "heap.h"
 #include "moduledb.h"
+#include "mips/proc.h"
+#include "module_shared.h"
 
 /* global thread-shared var */
 bool dentre_initialized = false;
@@ -208,6 +210,9 @@ dentre_app_init(void)
 #endif
 
 	dentre_vm_areas_init();
+	proc_init();
+	modules_init();		/* before vm_areas_init() */
+	os_init();
 
 	return SUCCESS;
 

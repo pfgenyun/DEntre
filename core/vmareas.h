@@ -36,6 +36,7 @@ enum {
     VECTOR_NO_LOCK       = 0x0010,
 };
 
+#define VECTOR_NEVER_MERGE (VECTOR_NEVER_MERGE_ADJACENT | VECTOR_NEVER_OVERLAP)
 
 /* This vector data structure is only exposed here for quick length checks.
  * For external (non-vmareas.c) users, the vmvector_* interface is the
@@ -102,11 +103,19 @@ struct vm_area_vector_t
 
 /* this routine does NOT initialize the rw lock!  use VMVECTOR_ALLOC_VECTOR instead */
 vm_area_vector_t *
-vmvector_create_vector(dcontext_t *dcontext, uint flags);
+vmvector_creat_vector(dcontext_t *dcontext, uint flags);
+
+
+/* operations on the opaque vector struct */
+void
+vmvector_set_callbacks(vm_area_vector_t *v,
+                       void (*free_func)(void*),
+                       void *(*split_func)(void*),
+                       bool (*should_merge_func)(bool, void*, void*),
+                       void *(*merge_func)(void*, void*));
 
 void 
 dentre_vm_areas_lock(void);
-
 void 
 dentre_vm_areas_unlock(void);
 
