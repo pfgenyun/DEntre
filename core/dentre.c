@@ -32,6 +32,12 @@
 #include "moduledb.h"
 #include "mips/proc.h"
 #include "module_shared.h"
+#include "mips/arch_exports.h"
+#include "synch.h"
+#ifdef KSTATS
+#	include "stats.h"
+#endif
+#include "monitor.h"
 
 /* global thread-shared var */
 bool dentre_initialized = false;
@@ -213,6 +219,16 @@ dentre_app_init(void)
 	proc_init();
 	modules_init();		/* before vm_areas_init() */
 	os_init();
+	arch_init();
+	synch_init();
+
+#ifdef KSTATS
+	kstat_init();
+#endif
+
+	monitor_init();
+	fcache_init();
+
 
 	return SUCCESS;
 

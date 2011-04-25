@@ -59,6 +59,10 @@ ALL:
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} module_list.c            -c -o  ${OBJDIR}module_list.o;		\
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} linux/module.c           -c -o  ${OBJDIR}module.o;			\
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} linux/signal.c           -c -o  ${OBJDIR}signal.o;			\
+	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} mips/arch.c              -c -o  ${OBJDIR}arch.o;			\
+	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} synch.c                  -c -o  ${OBJDIR}synch.o;			\
+	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} stats.c                  -c -o  ${OBJDIR}stats.o;			\
+	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} monitor.c                -c -o  ${OBJDIR}monitor.o;			\
 															\
 	cd ${OBJDIR};											 \
 	${CC} ${C_FLAG} ${LINK_FLAG} -nostartfiles  -o  libpreload.so $(OBJ_PRELOAD);		\
