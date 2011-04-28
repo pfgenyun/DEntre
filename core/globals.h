@@ -24,8 +24,11 @@
 #include "linux/os_exports.h"
 #include "utils.h"
 #include "lib/de_stats.h"
+#include "mips/arch_exports.h"
 
 #define INVALID_THREAD_ID  0
+
+typedef byte * cache_pc;	/* fragment cache pc */
 
 #define SUCCESS	(1)
 #define FAILURE	(0)
@@ -48,6 +51,8 @@ struct vm_area_vector_t;
 typedef struct vm_area_vector_t vm_area_vector_t;
 struct _fragment_t;
 typedef struct _fragment_t fragment_t;
+struct _linkstub_t;
+typedef struct _linkstub_t linkstub_t;
 
 struct _dcontext_t
 {
