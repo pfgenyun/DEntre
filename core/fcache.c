@@ -18,6 +18,7 @@
  */
 
 #include <stddef.h>		/* offsetof */
+#include <string.h>
 
 #include "globals.h"
 #include "utils.h"
@@ -25,6 +26,7 @@
 #include "vmareas.h"
 #include "heap.h"
 #include "link.h"
+#include "mips/proc.h"
 
 
 /**************************************************
@@ -132,8 +134,7 @@ typedef struct _free_list_header_t
 	ushort flags;
 	ushort size;
 	struct _free_list_header_t *prev;
-}free_list_header;
-
+}free_list_header_t;
 
 
 /* To locate the fcache_unit_t corresponding to a fragment or empty slot
@@ -155,7 +156,7 @@ typedef struct _fcache_unit_t
 	size_t size;
 	bool full;
 
-	struct _fcache *cache;
+	struct _fcache_t *cache;
 #ifdef SIDELINE
 	dcontext_t *dcontext;
 #endif
@@ -172,6 +173,93 @@ typedef struct _fcache_unit_t
 	struct _fcache_unit_t *prev_global;
 	struct _fcache_unit_t *next_local;
 }fcache_unit_t;
+
+
+
+/* one "code cache" of a single type of fragment, made up of potentially
+ * multiple FcacheUnits
+ */
+typedef struct _fcache_t
+{
+	bool is_trace:1;
+	bool is_shared:1;
+#ifdef DEBUG
+	bool is_local;
+#endif
+	bool is_coarse:1;
+
+	fragment_t *fifo;
+	fcache_unit_t *units;
+	size_t size;
+
+	mutex_t lock;
+
+#ifdef DEBUG
+	char *name;
+	bool consistent;
+#endif
+
+	/* backpointer for mapping cache pc to coarse info for inter-unit unlink */
+	coarse_info_t *coarse_info;
+
+    /* we cache parameter here so we don't have to dispatch on bb/trace
+     * type every time -- this also allows flexibility if we ever want
+     * to have different parameters per thread or something.
+     * not much of a space hit at all since there are 2 caches per thread
+     * and then 2 global caches.
+     */
+	uint max_size;
+	uint max_unit_size;
+	uint max_quadrupled_unit_size;
+	uint free_upgrade_size;
+	uint init_unit_size;
+	bool finite_cache;
+	uint regen_param;
+	uint replace_param;
+
+    /* for adaptive working set: */
+    uint      num_regenerated;
+    uint      num_replaced; /* for shared cache, simply number created */
+    /* for fifo caches, wset_check is simply an optimization to avoid
+     * too many checks when parameters are such that regen<<replace
+     */
+    int      wset_check;
+    /* for non-fifo caches, this flag indicates we should start
+     * recording num_regenerated and num_replaced
+     */
+    bool     record_wset;
+
+	free_list_header_t *free_list[FREE_LIST_SIZES_NUM];
+
+#ifdef DEBUG
+    uint free_stats_freed[FREE_LIST_SIZES_NUM]; /* occurrences */
+    uint free_stats_reused[FREE_LIST_SIZES_NUM]; /* occurrences */
+    uint free_stats_coalesced[FREE_LIST_SIZES_NUM]; /* occurrences */
+    uint free_stats_split[FREE_LIST_SIZES_NUM]; /* entry split, occurrences */
+    uint free_stats_charge[FREE_LIST_SIZES_NUM]; /* bytes on free list */
+    /* sizes of real requests and frees */
+    uint request_size_histogram[HISTOGRAM_MAX_SIZE/HISTOGRAM_GRANULARITY];
+    uint free_size_histogram[HISTOGRAM_MAX_SIZE/HISTOGRAM_GRANULARITY];
+#endif
+}fcache_t;
+
+
+/* per-thread structure: 
+ * FIXME: give a better name to distinguish from heap.c's _thread_units_t
+ */
+typedef struct _thread_units_t
+{
+	fcache_t *bb;
+	fcache_t *trace;
+	/* we delay unmapping units, but only one at a time: */
+	cache_pc pending_unmap_pc;
+	size_t pending_unmap_size;
+	/* are there units waiting to be flushed at a safe spot? */
+	bool pengding_flush;
+}thread_units_t;
+
+
+#define PROTECT_CACHE(cache, op)	/* need to be filled up */
 
 /*
  *  global, unique thread-shared structure: 
@@ -204,6 +292,9 @@ typedef struct _fcache_list_t
 /* Kept on the heap for selfprot (case 7957). */
 fcache_list_t *allunits;
 
+static fcache_t *shared_cache_bb;
+static fcache_t *shared_cache_trace;
+
 DECLARE_CXTSWPROT_VAR(mutex_t reset_pending_lock, INIT_LOCK_FREE(reset_pending_lock));
 
 /* indicates a call to fcache_reset_all_caches_proactively() is pending in dispatch */
@@ -235,11 +326,164 @@ schedule_reset(uint target)
 }
 
 
+
+/* Pass NULL for pc if this routine should allocate the cache space.
+ * If pc is non-NULL, this routine assumes that size is fully
+ * committed and initializes accordingly.
+ */
+static fcache_unit_t *
+fcache_creat_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t size)
+{
+	/* need to be filled up */
+}
+
+
+/* to make it easy to switch to INTERNAL_OPTION */
+#define FCACHE_OPTION(o) dentre_options.o
+
+/* assuming size will either be aligned at VM_ALLOCATION_BOUNDARY or
+ * smaller where no adjustment is necessary 
+ */
+#define FCACHE_GUARDED(size)                                    \
+        ((size) -                                               \
+         ((DENTRE_OPTION(guard_pages) &&                        \
+           ((size) >= VM_ALLOCATION_BOUNDARY - 2 * PAGE_SIZE))  \
+          ? (2 * PAGE_SIZE) : 0))
+
+
+#define SET_CACHE_PARAMS(cache, which)				\
+	do												\
+	{												\
+		cache->max_size = 							\
+			FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_max));				\
+		cache->max_unit_size =                                              \
+		    FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_unit_max));        \
+		cache->max_quadrupled_unit_size =                                   \
+		    FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_unit_quadruple));  \
+		cache->free_upgrade_size =                                          \
+		    FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_unit_upgrade));    \
+		cache->init_unit_size =                                             \
+		    FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_unit_init));       \
+		cache->finite_cache = dentre_options.finite_##which##_cache;        \
+		cache->regen_param = dentre_options.cache_##which##_regen;          \
+		cache->replace_param = dentre_options.cache_##which##_replace;      \
+	}while(0);		
+
+static fcache_t *
+fcache_cache_init(dcontext_t *dcontext, uint flags, bool initial_unit)
+{
+	fcache_t *cache = (fcache_t *)
+		nonpersistent_heap_alloc(dcontext, sizeof(fcache_t) HEAPACCT(ACCT_MEM_MGT));
+	cache->fifo = NULL;
+	cache->size = 0;
+	cache->is_trace = TEST(FRAG_IS_TRACE, flags);
+	cache->is_shared = TEST(FRAG_SHARED, flags);
+	cache->is_coarse = TEST(FRAG_COARSE_GRAIN, flags);
+	DODEBUG({ cache->is_local = false; });
+	cache->coarse_info = NULL;
+	DODEBUG({ cache->consistent = true; });
+
+	if(cache->is_shared)
+	{
+		ASSERT(dcontext == GLOBAL_DCONTEXT);
+		if(cache->is_trace)
+		{
+			DODEBUG({ cache->name = "Trace (shared)"; });
+			SET_CACHE_PARAMS(cache, shared_trace);
+		}
+		else if(cache->is_coarse)
+		{
+			DODEBUG({ cache->name = "Coarse basic block (shared)"; });
+			SET_CACHE_PARAMS(cache, coarse_bb);
+		}
+		else
+		{
+			DODEBUG({ cache->name = "Basic block (shared)"; });
+			SET_CACHE_PARAMS(cache, shared_bb);
+		}
+	}
+	else
+	{
+		ASSERT(dcontext != GLOBAL_DCONTEXT);
+		if(cache->is_trace)
+		{
+			DODEBUG({ cache->name = "Trace (private)"; });
+			SET_CACHE_PARAMS(cache, trace);
+		}
+		else
+		{
+			DODEBUG({ cache->name = "Basic block (private)"; });
+			SET_CACHE_PARAMS(cache, bb);
+		}
+	}
+
+#ifdef DISALLOW_CACHE_RESIZING
+    /* cannot handle resizing of cache, separate units only */
+    cache->init_unit_size = cache->max_unit_size;
+#endif
+	
+	if(cache->is_shared)
+		ASSIGN_INIT_LOCK_FREE(cache->lock, shared_cache_lock);
+
+	if(initial_unit)
+	{
+		PROTECT_CACHE(cache, lock);
+		cache->units = fcache_creat_unit(dcontext, cache, NULL, cache->init_unit_size);
+		PROTECT_CACHE(cache, unlock);
+	}
+	else
+	{
+		cache->units = NULL;
+	}
+
+    cache->num_regenerated = 0;
+    cache->num_replaced = 0;
+    cache->wset_check = 0;
+    cache->record_wset = false;
+
+    if (cache->is_shared) { /* else won't use free list */
+        memset(cache->free_list, 0, sizeof(cache->free_list));
+        DODEBUG({
+            memset(cache->free_stats_freed, 0, sizeof(cache->free_stats_freed));
+            memset(cache->free_stats_reused, 0, sizeof(cache->free_stats_reused));
+            memset(cache->free_stats_coalesced, 0, sizeof(cache->free_stats_coalesced));
+            memset(cache->free_stats_charge, 0, sizeof(cache->free_stats_charge));
+            memset(cache->free_stats_split, 0, sizeof(cache->free_stats_split));
+            memset(cache->request_size_histogram, 0, 
+                   sizeof(cache->request_size_histogram));
+            memset(cache->free_size_histogram, 0, 
+                   sizeof(cache->free_size_histogram));
+        });
+    }
+
+	return cache;
+}
+
 /* thread-shared initialization that should be repeated after a reset */
 static void
 fcache_reset_init(void)
 {
-	/* need to be filled up */
+    /* case 7966: don't initialize at all for hotp_only & thin_client
+     * FIXME: could set initial sizes to 0 for all configurations, instead
+     */
+	if(RUNNING_WITHOUT_CODE_CACHE())
+		return;
+
+	if(DENTRE_OPTION(shared_bbs))
+	{
+		shared_cache_bb = fcache_cache_init(GLOBAL_DCONTEXT, FRAG_SHARED, true);
+		ASSERT(shared_cache_bb != NULL);
+        LOG(GLOBAL, LOG_CACHE, 1, "Initial shared bb cache is %d KB\n",
+            shared_cache_bb->init_unit_size/1024);
+	}
+
+	if(DENTRE_OPTION(shared_traces))
+	{
+		shared_cache_trace = fcache_cache_init(GLOBAL_DCONTEXT, FRAG_SHARED|FRAG_IS_TRACE, true);
+		ASSERT(shared_cache_trace != NULL);
+        LOG(GLOBAL, LOG_CACHE, 1, "Initial shared trace cache is %d KB\n",
+            shared_cache_bb->init_unit_size/1024);
+	}
 }
 
 /* initialization -- needs no locks */

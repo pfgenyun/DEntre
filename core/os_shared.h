@@ -20,6 +20,7 @@
 #ifndef _OS_SHARED_H_
 #define _OS_SHARED_H_	1
 
+enum {VM_ALLOCATION_BOUNDARY = 64*1024}; 
 
 enum {
     HEAP_ERROR_SUCCESS = 0,

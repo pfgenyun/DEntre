@@ -20,11 +20,15 @@
 #ifndef _GLOBALS_H_
 #define _GLOBALS_H_	1
 
+#include <stdlib.h>
+#include <stdio.h>
+
 #include "lib/globals_shared.h"
 #include "linux/os_exports.h"
 #include "utils.h"
 #include "lib/de_stats.h"
 #include "mips/arch_exports.h"
+#include "options.h"
 
 #define INVALID_THREAD_ID  0
 
@@ -53,6 +57,8 @@ struct _fragment_t;
 typedef struct _fragment_t fragment_t;
 struct _linkstub_t;
 typedef struct _linkstub_t linkstub_t;
+struct _coarse_info_t;
+typedef struct _coarse_info_t coarse_info_t;
 
 struct _dcontext_t
 {

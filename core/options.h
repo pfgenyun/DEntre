@@ -188,6 +188,8 @@ extern const internal_options_t default_internal_options;
                                                OPTION_DEFAULT_VALUE_##name)
 #endif
 
+#define RUNNING_WITHOUT_CODECACHE()	/* need to be filled up */
+
 extern char option_string[];
 extern options_t dentre_options;
 extern read_write_lock_t options_lock;

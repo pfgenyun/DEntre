@@ -1189,6 +1189,35 @@ global_unprotected_heap_alloc(size_t size HEAPACCT(which_heap_t which))
     return p;
 }
 
+void *
+nonpersistent_heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
+{
+	void *p;
+	if(DENTRE_OPTION(enable_reset))
+	{
+		if(dcontext == GLOBAL_DCONTEXT)
+		{
+			p = common_global_heap_alloc(&heapmgt->global_nonpersistent_units,
+										 size HEAPACCT(which));
+            LOG(GLOBAL, LOG_HEAP, 6,
+                "\nglobal nonpersistent alloc: "PFX" (%d bytes)\n", p, size);
+		}
+		else
+		{
+			thread_units_t *nph = ((thread_heap_t *) dcontext->heap_field)->nonpersistent_heap;
+			p = common_heap_alloc(nph, size HEAPACCT(which));
+		}
+	}
+	else
+	{
+		p = heap_alloc(dcontext, size HEAPACCT(which));
+	}
+
+	ASSERT(p != NULL);
+
+	return p;
+}
+
 
 
 /* We cannot incrementally keep dynamo vm area list up to date due to

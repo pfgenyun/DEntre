@@ -73,17 +73,13 @@ void vmm_heap_init(void);
 /* heap management */
 void heap_init(void);
 void heap_reset_int(void);
-
 void *heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which));
-
 void *global_unprotected_heap_alloc(size_t size HEAPACCT(which_heap_t which));
-
 void *global_heap_alloc(size_t size HEAPACCT(which_heap_t which));
+void * nonpersistent_heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which));
 
 bool schedule_reset(uint target);
-
 bool is_vmm_reserved_address(byte *pc, size_t size);
-
 void heap_vmareas_synch_units();
 
 #define UNPROTECTED_LOCAL_ALLOC(dc, ...)	global_unprotected_heap_alloc(__VA_ARGS__)

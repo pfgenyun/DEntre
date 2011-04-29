@@ -27,14 +27,14 @@
 
 /* Flags, stored in fragment_t->flags bitfield
  */
-
+#define FRAG_IS_TRACE               0x000004
 
 /* Indicates an irregular fragment_t.  In particular, there are no
  * trailing linkstubs after this fragment_t struct.  Note that other
  * "fake fragment_t" flags should be set in combination with this one
  * (FRAG_IS_{FUTURE,EXTRA_VMAREA*,EMPTY_SLOT}, FRAG_FCACHE_FREE_LIST).
  */
-#define FRAG_FAKE				0x000100
+#define FRAG_FAKE					0x000100
 
 /* This is not a fragment_t but an fcache free list entry.
  * In current usage this is checked to see if the previous free list entry is
@@ -42,7 +42,15 @@
  * This flag MUST be in the bottom 16 bits since free_list_header_t.flags
  * is a ushort!
  */
-#define FRAG_FCACHE_FREE_LIST	0x000800
+#define FRAG_FCACHE_FREE_LIST		0x000800
+
+#define FRAG_SHARED					0x1000000
+
+/* Indicates coarse-grain cache management, i.e., batch units with
+ * no individual fragment_t.
+ */
+#define FRAG_COARSE_GRAIN			0x10000000
+
 
 /* to save space size field is a ushort => maximum fragment size */
 enum { MAX_FRAGMENT_SIZE = USHRT_MAX };
