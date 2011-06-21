@@ -59,6 +59,8 @@ struct _linkstub_t;
 typedef struct _linkstub_t linkstub_t;
 struct _coarse_info_t;
 typedef struct _coarse_info_t coarse_info_t;
+struct _future_fragment_t;
+typedef struct _future_fragment_t future_fragment_t;
 
 struct _dcontext_t
 {

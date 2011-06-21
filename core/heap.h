@@ -96,6 +96,10 @@ void heap_vmareas_synch_units();
 	HEAP_ARRAY_ALLOC(dc, type, 1, which, protected)
 
 
+/* special heap of same-sized blocks that avoids global locks */
+void * special_heap_init(uint block_size, bool use_lock, bool executable,
+						 bool persistent);
+
 
 #ifdef DEBUG_MEMORY
 # define HEAP_TO_BYTE_EX(hex) 0x##hex

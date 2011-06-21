@@ -188,7 +188,7 @@ extern const internal_options_t default_internal_options;
                                                OPTION_DEFAULT_VALUE_##name)
 #endif
 
-#define RUNNING_WITHOUT_CODECACHE()	/* need to be filled up */
+#define RUNNING_WITHOUT_CODE_CACHE()	/* need to be filled up */
 
 extern char option_string[];
 extern options_t dentre_options;
@@ -225,5 +225,21 @@ string_option_read_unlock() {
 
 int 
 options_init(void);
+
+
+/* are any fragments (potentially) shared? */
+#define SHARED_FRAGMENTS_ENABLED()	\
+	(DENTRE_OPTION(shared_bbs) || DENTRE_OPTION(shared_traces)
+
+/* are any IBT tables (potentially) shared? */
+#define SHARED_IBT_TABLES_ENABLED() \
+	 (DENTRE_OPTION(shared_bb_ibt_tables) || DENTRE_OPTION(shared_trace_ibt_tables))
+
+#define TRACEDUMP_ENABLED()                 \
+     (!DENTRE_OPTION(disable_traces) &&     \
+      (INTERNAL_OPTION(tracedump_text) ||   \
+       INTERNAL_OPTION(tracedump_binary) || \
+       INTERNAL_OPTION(tracedump_origins)))
+
 
 #endif

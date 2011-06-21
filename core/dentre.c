@@ -38,6 +38,7 @@
 #	include "stats.h"
 #endif
 #include "monitor.h"
+#include "link.h"
 
 /* global thread-shared var */
 bool dentre_initialized = false;
@@ -228,6 +229,8 @@ dentre_app_init(void)
 
 	monitor_init();
 	fcache_init();
+	link_init();
+	fragment_init();
 
 
 	return SUCCESS;

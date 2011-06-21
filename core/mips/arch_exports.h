@@ -52,4 +52,72 @@ void arch_init(void);
 
 
 
+/* Merge w/ _LENGTH enum below? */
+/* not ifdef X64 to simplify code */
+/* need to be filled up */
+#define SIZE64_MOV_XAX_TO_TLS         4
+#define SIZE64_MOV_XBX_TO_TLS         4
+#define SIZE64_MOV_PTR_IMM_TO_XAX     4
+#define SIZE64_MOV_PTR_IMM_TO_TLS     4 
+#define SIZE32_MOV_XAX_TO_TLS         4
+#define SIZE32_MOV_XBX_TO_TLS         4
+#define SIZE32_MOV_XAX_TO_TLS_DISP32  4
+#define SIZE32_MOV_XBX_TO_TLS_DISP32  4
+#define SIZE32_MOV_XAX_TO_ABS         4
+#define SIZE32_MOV_XBX_TO_ABS         4
+#define SIZE32_MOV_PTR_IMM_TO_XAX     4
+#define SIZE32_MOV_PTR_IMM_TO_TLS     4
+
+
+#ifdef N64
+#	define FLAG_IS_32(flags)	(TEST(FLAG_32_BIT, (flags)))
+#else
+#	define FLAG_IS_32(flags)	true
+#endif
+
+
+/* exported for DYNAMO_OPTION(separate_private_stubs)
+ * FIXME: find better way to export -- would use global var accessed
+ * by macro, but easiest to have as static initializer for heap bucket
+ */
+/* for -thread_private, we're relying on the fact that
+ * SIZE32_MOV_XAX_TO_TLS == SIZE32_MOV_XAX_TO_ABS, and that
+ * x64 always uses tls
+ */
+#define DIRECT_EXIT_STUB_SIZE32	\
+	(SIZE32_MOV_XAX_TO_TLS + SIZE32_MOV_PTR_IMM_TO_XAX + JMP_LONG_LENGTH)
+#define DIRECT_EXIT_STUB_SIZE64	\
+	(SIZE64_MOV_XAX_TO_TLS + SIZE64_MOV_PTR_IMM_TO_XAX + JMP_LONG_LENGTH)
+#define DIRECT_EXIT_STUB_SIZE(flags)	\
+	(FLAG_IS_32(flag) ? DIRECT_EXIT_STUB_SIZE32 : DIRECT_EXIT_STUB_SIZE64)
+
+/* need to be filled up */
+enum {
+    MAX_INSTR_LENGTH = 4,
+    /* size of 32-bit-offset jcc instr, assuming it has no
+     * jcc branch hint!
+     */
+    CBR_LONG_LENGTH  = 4,
+    JMP_LONG_LENGTH  = 4,
+    JMP_SHORT_LENGTH = 4,
+    CBR_SHORT_REWRITE_LENGTH = 4, /* FIXME: use this in mangle.c */
+    RET_0_LENGTH     = 4,
+    PUSH_IMM32_LENGTH = 4,
+
+    /* size of 32-bit call and jmp instructions w/o prefixes. */
+    CTI_IND1_LENGTH    = 4, /*  */
+    CTI_IND2_LENGTH    = 4, /*  */
+    CTI_IND3_LENGTH    = 4, /*  */
+    CTI_DIRECT_LENGTH  = 4, /*  */
+    CTI_IAT_LENGTH     = 4, /*  */
+    CTI_FAR_ABS_LENGTH = 4, /*  */
+                            /*  */
+
+    INT_LENGTH = 4,
+    SYSCALL_LENGTH = 4,
+    SYSENTER_LENGTH = 4,
+};
+
+
+
 #endif

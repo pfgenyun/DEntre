@@ -74,6 +74,8 @@ struct _linkstub_t
 };
 
 
+void link_init(void);
+void link_reset_init(void);
 
 
 #endif

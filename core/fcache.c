@@ -428,6 +428,8 @@ fcache_cache_init(dcontext_t *dcontext, uint flags, bool initial_unit)
 	if(initial_unit)
 	{
 		PROTECT_CACHE(cache, lock);
+		/* 64k for shared bb or N64, 4k for local bb*/
+		/* 64k for shared trace or N64, 8k for local trace*/
 		cache->units = fcache_creat_unit(dcontext, cache, NULL, cache->init_unit_size);
 		PROTECT_CACHE(cache, unlock);
 	}

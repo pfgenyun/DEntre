@@ -52,6 +52,20 @@
 #define FRAG_COARSE_GRAIN			0x10000000
 
 
+
+#ifdef N64
+/* this fragment contains 32-bit code */
+# define FRAG_32_BIT                0x400000
+# ifdef RETURN_STACK
+#  error RETURN_STACK not compatible with X64
+# endif
+#elif defined(RETURN_STACK)
+/* used for RETURN_STACK */
+# define FRAG_ENDS_WITH_RETURN      0x400000
+#endif
+
+
+
 /* to save space size field is a ushort => maximum fragment size */
 enum { MAX_FRAGMENT_SIZE = USHRT_MAX };
 
@@ -127,5 +141,25 @@ struct _fragment_t
 };/* fragment__t */
 
 
+/* Structure used for future fragments, separate to save memory.
+ * next and flags must be at same offset as for fragment_t, so that
+ * hashtable (next) and link.c (flags) can polymorphize fragment_t
+ * and future_fragment_t.  The rule is enforced in fragment_init.
+ */
+struct _future_fragment_t
+{
+	app_pc tag;		/* non-zero fragment tag used for lookups */
+	uint flags;		/* contains FRAG_ flags */
+	link_stub_t *incoming_stubs;	/* list of other fragments' exits that target
+									   this fragment */
+}
+
+
+
+void 
+fragment_init(void);
+
+void 
+fragment_reset_init(void);
 
 #endif

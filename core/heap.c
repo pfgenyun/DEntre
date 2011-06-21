@@ -1219,6 +1219,22 @@ nonpersistent_heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t
 }
 
 
+static void *
+special_heap_init_internal(uint block_size, bool use_lock, bool executable, 
+						   bool persistent, vm_area_vector_t *vector, void *vector_data,
+						   byte *heap_region, size_t heap_size, bool unit_full)
+{
+	/* need to be filled up */
+}
+
+/* Typical usage */
+void *
+special_heap_init(uint block_size, bool use_lock, bool executable, bool persistent)
+{
+	return special_heap_init_internal(block_size, use_lock, executable, 
+									  persistent, NULL, NULL, NULL, 0, false);
+}
+
 
 /* We cannot incrementally keep dynamo vm area list up to date due to
  * circular dependencies bet vmareas and global heap (trust me, I've tried
