@@ -231,6 +231,7 @@ dentre_app_init(void)
 	fcache_init();
 	link_init();
 	fragment_init();
+	moduledb_init();	/* before vm_areas_init, after heap_init */
 
 
 	return SUCCESS;

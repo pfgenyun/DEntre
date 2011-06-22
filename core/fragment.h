@@ -150,10 +150,33 @@ struct _future_fragment_t
 {
 	app_pc tag;		/* non-zero fragment tag used for lookups */
 	uint flags;		/* contains FRAG_ flags */
-	link_stub_t *incoming_stubs;	/* list of other fragments' exits that target
+	linkstub_t *incoming_stubs;	/* list of other fragments' exits that target
 									   this fragment */
-}
+};
 
+
+/* We keep basic blocks and traces in separate hashtables.  This is to
+ * speed up indirect_branch_lookup that looks for traces only, but it
+ * means our lookup function has to look in both hashtables.  This has
+ * no noticeable performance impact.  A strategy of having an
+ * all-fragment hashtable and a trace-only hashtable that mirrors just
+ * the traces of the all-fragment hashtable performs similarly but is
+ * more complicated since fragments need two different next fields,
+ * plus it uses more memory because traces are in two hashtables
+ * simultaneously.
+ *
+ * FIXME: Shared bb IBL routines indirectly access only a few fields
+ * from each fragment_table_t which will touch a separate cache line for
+ * each.  However, trace IBL routines don't indirect so I don't expect
+ * a performance hit of using the current struct layout.  
+ * FIXME: The bb IBL routines however are shared and therefore
+ * indirect, so splitting the fragment_table_t in two compactable
+ * structures may be worth trying.
+ */
+typedef struct _per_thread_t 
+{
+	/* need to be filled up */
+}per_thread_t;
 
 
 void 

@@ -47,4 +47,17 @@ void process_control(void);
 void process_control_init(void);
 #endif
 
+
+/* Used to specify an exemption list for moduledb_check_exempt_list */
+typedef enum {
+    MODULEDB_EXEMPT_RCT          = 0,
+    MODULEDB_EXEMPT_IMAGE        = 1,
+    MODULEDB_EXEMPT_DLL2HEAP     = 2,
+    MODULEDB_EXEMPT_DLL2STACK    = 3,
+    MODULEDB_EXEMPT_NUM_LISTS    = 4,
+} moduledb_exempt_list_t;
+
+void 
+moduledb_init(void);
+
 #endif
