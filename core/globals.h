@@ -70,6 +70,9 @@ struct _dcontext_t
 };
 
 
+/* size of each Dynamo thread-private stack */
+#define DENTRE_STACK_SIZE dentre_options.stack_size	/* 20k or 12k*/
+
 
 int get_num_threads(void);
 

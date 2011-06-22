@@ -1259,3 +1259,45 @@ heap_vmareas_synch_units()
 	/* clean the heap unit in vmareas list and reconstruct it in vmareas*/
 	/* not a good idea */
 }
+
+
+
+#ifdef STACK_GUARD_PAGE
+# define STACK_GUARD_PAGES 1    
+#endif
+
+/* use stack_alloc to build a stack -- it returns TOS
+ * For STACK_GUARD_PAGE, it also marks the bottom STACK_GUARD_PAGES==1 
+ * to detect overflows when used.
+ */
+void *
+stack_alloc(size_t size)
+{
+	void *p;
+
+    /* we reserve and commit at once for now
+     * FIXME case 2330: commit-on-demand could allow larger max sizes w/o
+     * hurting us in the common case
+     */
+	p = get_guarded_real_memory(size, size, MEMPROT_READ|MEMPROT_WRITE, true, true
+								_IF_DEBUG("stack_alloc"));
+
+#ifdef DEBUG_MEMORY
+	memset(p, HEAP_ALLOCATED_BYTE, size);
+#endif
+
+
+#ifdef STACK_GUARD_PAGE
+    /* mark the bottom page non-accessible to trap stack overflow */
+    /* NOTE: the guard page should be included in the total memory requested */
+    
+	/* FIXME: make no access, not just no write -- and update signal.c to
+     * look at reads and not just writes -- though unwritable is nearly as good
+     */
+#  if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
+    if (!standalone_library)
+#  endif
+        make_unwritable(p, STACK_GUARD_PAGES * PAGE_SIZE);
+#endif
+	
+}

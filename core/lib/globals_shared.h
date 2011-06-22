@@ -23,6 +23,7 @@
 
 #include <sys/types.h>
 
+/* pf: MAXIMUM_PATH in dynamorio */
 #define MAXINUM_PATH	260
 
 #define MAX_CLIENT_LIBS 16

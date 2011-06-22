@@ -587,3 +587,12 @@ update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
 	/* vmarea managment  */
 }
 
+
+/* make pc's page unwritable 
+ * FIXME: how get current protection?  would like to keep old read/exec flags
+ */
+void
+make_unwritable(byte *pc, size_t size)
+{
+	/* need to be filled up */
+}

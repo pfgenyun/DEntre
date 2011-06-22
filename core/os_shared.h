@@ -110,6 +110,10 @@ typedef enum {
 } dr_mem_type_t;
 
 
+/* requires that pc is page aligned and size is multiple of the page size
+ * and marks that memory NOT writable, preserves other flags */
+void make_unwritable(byte *pc, size_t size);
+
 /***************************************************************************
  * SELF_PROTECTION
  */

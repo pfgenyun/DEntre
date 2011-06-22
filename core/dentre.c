@@ -39,6 +39,8 @@
 #endif
 #include "monitor.h"
 #include "link.h"
+#include "perscache.h"
+#include "hotpatch.h"
 
 /* global thread-shared var */
 bool dentre_initialized = false;
@@ -49,6 +51,9 @@ bool dentre_exited = false;
 
 bool post_exec = false;
 static uint starttime = 0;
+
+/* initial stack so we don't have to use app's */
+byte *  initstack;
 
 DECLARE_FREQPROT_VAR(static int num_known_threads, 0);
 /*vfork threads that execve need to be separately delay-freed */
@@ -232,6 +237,24 @@ dentre_app_init(void)
 	link_init();
 	fragment_init();
 	moduledb_init();	/* before vm_areas_init, after heap_init */
+	perscache_init();	/* before vm_areas_init */
+
+    if (!DENTRE_OPTION(thin_client)) {
+#ifdef HOT_PATCHING_INTERFACE
+        /* must init hotp before vm_areas_init() calls find_executable_vm_areas() */
+        if (DENTRE_OPTION(hot_patching))
+            hotp_init();
+#endif
+    }
+
+#ifdef INTERNAL
+/* need to be filled up */
+#endif
+
+	/* initial stack so we don't have to use app's 
+	 * N.B.: we never de-allocate initstack (see comments in app_exit)
+	 */
+	initstack = (byte *) stack_alloc(DENTRE_STACK_SIZE);
 
 
 	return SUCCESS;

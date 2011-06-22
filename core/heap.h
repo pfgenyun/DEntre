@@ -82,6 +82,8 @@ bool schedule_reset(uint target);
 bool is_vmm_reserved_address(byte *pc, size_t size);
 void heap_vmareas_synch_units();
 
+void *stack_alloc(size_t size);
+
 #define UNPROTECTED_LOCAL_ALLOC(dc, ...)	global_unprotected_heap_alloc(__VA_ARGS__)
 
 #define PROTECTED	true
