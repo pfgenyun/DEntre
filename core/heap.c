@@ -1301,3 +1301,39 @@ stack_alloc(size_t size)
 #endif
 	
 }
+
+
+/* use heap_mmap to allocate large chunks of executable memory
+ * it's mainly used to allocate our fcache units
+ */
+void *
+heap_mmap_ex(size_t reserve_size, size_t commit_size, uint prot, bool guarded)
+{
+	void *p = get_guarded_real_memory(reserve_size, commit_size, prot, true,
+									  guarded _IF_DEBUG("heap_mmap"));
+
+	/* need to be filled up */
+
+	return p;
+}
+
+/* use heap_mmap to allocate large chunks of executable memory
+ * it's mainly used to allocate our fcache units
+ */
+void *
+heap_mmap_reserve(size_t reserve_size, size_t commit_size)
+{
+	/* heap_mmap always marks as executable */
+	return heap_mmap_ex(reserve_size, commit_size,
+						MEMPROT_EXEC|MEMPROT_READ|MEMPROT_WRITE, true);
+}
+
+
+/* use heap_mmap to allocate large chunks of executable memory
+ * it's mainly used to allocate our fcache units
+ */
+void *
+heap_mmap(size_t size)
+{
+	return heap_mmap_reserve(size, size);
+}

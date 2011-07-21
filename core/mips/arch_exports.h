@@ -20,6 +20,8 @@
 #ifndef _ARCH_EXPORTS_H_
 #define _ARCH_EXPORTS_H_	1
 
+#include "../globals.h"
+
 /* Translation table entry (case 3559).
  * PR 299783: for now we only support pc translation, not full arbitrary reg
  * state mappings, which aren't needed for DR but may be nice for clients.
@@ -119,5 +121,30 @@ enum {
 };
 
 
+typedef struct _table_stat_state_t
+{
+	/* need to be filled up */
+}table_stat_state_t;
+
+/* All spill slots are grouped in a separate struct because with
+ * -no_ibl_table_in_tls, only these slots are mapped to TLS (and the
+ * table address/mask pairs are not).
+ */
+typedef struct _spill_state_t
+{
+	reg_t t1, t2, t3, t4;
+	dcontext_t *dcontext;
+}spill_state_t;
+
+typedef struct _local_state_t
+{
+	spill_state_t spill_space;
+}local_state_t;
+
+typedef struct _local_state_extended_t
+{
+	spill_state_t spill_space;
+	table_stat_state_t table_space;
+}local_state_extended_t;
 
 #endif

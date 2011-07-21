@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/utsname.h>
+#include <string.h>
 
 #include "../globals.h"
 #include "syscall.h"
@@ -33,6 +34,7 @@
 #include "../mips/proc.h"
 #include "os_private.h"
 #include "../vmareas.h"
+#include "../heap.h"
 
 
 /* must be after N64 is defined */
@@ -43,6 +45,24 @@
 # define SYSNUM_STAT SYS_stat64
 # define SYSNUM_FSTAT SYS_fstat64
 #endif
+
+
+#ifndef HAVE_TLS
+/* We use a table lookup to find a thread's dcontext */
+/* Our only current no-TLS target, VMKernel (VMX86_SERVER), doesn't have apps with
+ * tons of threads anyway
+ */
+#define MAX_THREADS 512
+typedef struct _tls_slot_t {
+    thread_id_t tid;
+    dcontext_t *dcontext;
+} tls_slot_t;
+/* Stored in heap for self-prot */
+static tls_slot_t *tls_table;
+/* not static so deadlock_avoidance_unlock() can look for it */
+DECLARE_CXTSWPROT_VAR(mutex_t tls_lock, INIT_LOCK_FREE(tls_lock));
+#endif
+
 
 /* does the kernel provide tids that must be used to distinguish threads in a group? */
 static bool kernel_thread_groups;
@@ -596,3 +616,93 @@ make_unwritable(byte *pc, size_t size)
 {
 	/* need to be filled up */
 }
+
+thread_id_t
+get_sys_thread_id()
+{
+	/* need to be filled up */
+}
+
+thread_id_t 
+get_thread_id()
+{
+	/* need to be filled up  */
+}
+
+thread_id_t
+get_tls_thread_id()
+{
+	/* need to be filled up */
+}
+
+/* returns the thread-private dcontext pointer for the calling thread */
+dcontext_t *
+get_thread_private_dcontext(void)
+{
+	/* need to be filled up */
+}
+
+/* yield the current thread */
+void 
+thread_yield()
+{
+	dentre_syscall(SYS_sched_yield, 0);
+}
+
+
+/* We support 3 different methods of creating a segment (see os_tls_init()) */
+typedef enum {
+    TLS_TYPE_NONE,
+    TLS_TYPE_LDT,
+    TLS_TYPE_GDT,
+#ifdef N64
+    TLS_TYPE_ARCH_PRCTL,
+#endif
+} tls_type_t;
+
+
+/* layout of our TLS */
+typedef struct _os_local_state_t
+{
+    /* put state first to ensure that it is cache-line-aligned */
+    /* On Linux, we always use the extended structure. */
+	local_state_extended_t state;
+	/* linear address of tls page */
+	struct _os_local_state_t *self;
+	/* store what type of TLS this is so we can clean up properly */
+	tls_type_t tls_type;
+    /* For pre-SYS_set_thread_area kernels (pre-2.5.32, pre-NPTL), each
+     * thread needs its own ldt entry */
+	int ldt_index;
+	/* tid needed to ensure children are set up properly */
+	thread_id_t tid;
+	
+#ifdef CLIENT_INTERFACE
+    void *client_tls[MAX_NUM_CLIENT_TLS];
+#endif
+}os_local_state_t;
+
+
+void
+os_tls_init()
+{
+#ifdef HAVE_TLS
+	byte *segment = heap_mmap(PAGE_SIZE);
+	os_local_state_t *os_tls = (os_local_stat_t *) segment;
+
+	memset(segment, 0, PAGE_SIZE);
+
+	os_tls->self = os_tls;
+	os_tls->tid = get_thread_id();
+	os_tls->tls_type = TLS_TYPE_NONE;
+
+	/* need to be filled up */
+
+#else
+	tls_table = (tls_slot_t *)
+		global_heap_alloc(MAX_THREADS*sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));
+	memset(tls_table, 0, MAX_THREADS*sizeof(tls_slot_t));
+#endif
+}
+
+

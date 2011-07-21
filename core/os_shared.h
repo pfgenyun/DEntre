@@ -40,6 +40,14 @@ bool os_heap_commit(void *p, size_t size, uint prot, heap_error_code_t *error_co
 
 void update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type);
 
+thread_id_t get_thread_id(void);
+thread_id_t get_tls_thread_id(void);
+thread_id_t get_sys_thread_id(void);
+void thread_yield(void);
+dcontext_t * get_thread_private_dcontext(void);
+
+void os_tls_init(void);
+
 /* file operations */
 /* defaults to read only access, if write is not set ignores others */
 #define OS_OPEN_READ        0x01

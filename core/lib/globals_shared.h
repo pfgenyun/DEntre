@@ -141,6 +141,15 @@ typedef int file_t;
 #define EXPANDSTR(x)	#x
 #define STRINGIFY(x)	EXPANDSTR(x)
 
+
+/* Allow custom builds to specify the product name */
+#ifdef CUSTOM_PRODUCT_NAME
+#  define PRODUCT_NAME STRINGIFY(CUSTOM_PRODUCT_NAME)
+#else
+#  define PRODUCT_NAME "DEntre"
+#endif
+
+
 #define DENTRE_VAR_RUNUNDER_ID	DENTRE_RUNUNDER
 
 /* FIXME: the environment vars need to be renamed - it will be a pain */

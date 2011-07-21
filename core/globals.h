@@ -24,10 +24,10 @@
 #include <stdio.h>
 
 #include "lib/globals_shared.h"
-#include "linux/os_exports.h"
+//#include "linux/os_exports.h"	/* below use dcontext_t*/
 #include "utils.h"
 #include "lib/de_stats.h"
-#include "mips/arch_exports.h"
+//#include "mips/arch_exports.h" /* below use dcontext_t*/
 #include "options.h"
 
 #define INVALID_THREAD_ID  0
@@ -70,11 +70,32 @@ struct _dcontext_t
 };
 
 
+#include "mips/arch_exports.h"
+#include "linux/os_exports.h"
+
 /* size of each Dynamo thread-private stack */
 #define DENTRE_STACK_SIZE dentre_options.stack_size	/* 20k or 12k*/
 
+typedef struct _thread_record_t
+{
+	thread_id_t id;		/* thread id */
+	process_id_t pid;	/* thread group id */
+	bool execve;		/* exiting due to execve*/
 
+	uint num;							/* creation ordinal */
+	bool under_dentre_control;			/* used for deciding whether to intercept events */
+	dcontext_t *dcontext;					/* allows other threads to see this thread's context */
+	struct _thread_record_t *next;
+}thread_record_t;
+
+/* in dentre.c */
+/* 9-bit addressed hash table takes up 2K, has capacity of 512
+ * we never resize, assuming won't be seeing more than a few hundred threads
+ */
+#define ALL_THREADS_HASH_BITS 9
 int get_num_threads(void);
+
+int dentre_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread));
 
 #define GLOBAL_DCONTEXT	((dcontext_t *)PTR_UINT_MINUS_1)
 

@@ -84,6 +84,12 @@ void heap_vmareas_synch_units();
 
 void *stack_alloc(size_t size);
 
+/* use heap_mmap to allocate large chunks of executable memory */
+void *heap_mmap(size_t size);
+void *heap_mmap_reserve(size_t reserve_size, size_t commit_size);
+void *heap_mmap_ex(size_t reserve_size, size_t commit_size, uint prot, bool guarded);
+
+
 #define UNPROTECTED_LOCAL_ALLOC(dc, ...)	global_unprotected_heap_alloc(__VA_ARGS__)
 
 #define PROTECTED	true

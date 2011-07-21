@@ -41,6 +41,7 @@
 #include "link.h"
 #include "perscache.h"
 #include "hotpatch.h"
+#include "mips/sideline.h"
 
 /* global thread-shared var */
 bool dentre_initialized = false;
@@ -59,6 +60,11 @@ DECLARE_FREQPROT_VAR(static int num_known_threads, 0);
 /*vfork threads that execve need to be separately delay-freed */
 DECLARE_FREQPROT_VAR(static int num_execve_threads, 0);
 
+/* used for synch to prevent thread creation/deletion in critical periods 
+ * due to its use for flushing, this lock cannot be held while couldbelinking!
+ */
+DECLARE_CXTSWPROT_VAR(mutex_t thread_initexit_lock,
+                      INIT_LOCK_FREE(thread_initexit_lock));
 
 START_DATA_SECTION(NEVER_PROTECTED_SECTION, "w")
 
@@ -95,6 +101,11 @@ static void data_section_init();
 static void data_section_exit();
 
 de_statistics_t *stats = NULL;
+
+/* FIXME : not static so os.c can hand walk it for dump core */
+/* FIXME: use new generic_table_t and generic_hash_* routines */
+thread_record_t ** all_threads; /* ALL_THREADS_HASH_BITS-bit addressed hash table */
+
 
 static void
 statistics_pre_init(void)
@@ -154,7 +165,6 @@ statistics_init(void)
 DENTRE_EXPORT int
 dentre_app_init(void)
 {
-	int size;
 
 	if(!dentre_initialized)
 	{
@@ -257,6 +267,31 @@ dentre_app_init(void)
 	initstack = (byte *) stack_alloc(DENTRE_STACK_SIZE);
 
 
+	/* initialize thread hashtable */
+	/* Note: for thin_client, this isn't needed if it is only going to
+	 * look for spawned processes; however, if we plan to promote from 
+	 * thin_client to hotp_only mode (highly likely), this would be needed.
+	 * For now, leave it in there unless thin_client footprint becomes an 
+	 * issue.
+	 */
+
+	int size;
+	size = HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) * (sizeof(thread_record_t*));
+	all_threads = (thread_record_t**)global_heap_alloc(size HEAPACCT(ACCT_HTREAD_MGT));
+	memset(all_threads, 0, size);
+
+#ifdef SIDELINE
+	/* initialize sideline thread after thread table is set up */
+	if(dentre_options.sideline)
+		sideline_init();
+#endif
+
+
+	/* thread-specific initialization for the first thread we inject in
+	 * (in a race with injected threads, sometimes it is not the primary thread)
+	 */
+	dentre_thread_init(NULL _IF_CLIENT_INTERFACE(false));
+
 	return SUCCESS;
 
 }
@@ -306,3 +341,64 @@ get_num_threads(void)
 {
 	return num_known_threads - num_execve_threads;
 }
+
+
+bool
+is_thread_initialized(void)
+{
+#ifdef HAVE_TLS
+	if(get_tls_thread_id() != get_sys_thread_id())
+		return false;	
+#endif
+	return (get_thread_private_dcontext() != NULL);
+}
+
+
+/* thread-specific initialization 
+ * if dstack_in is NULL, then a dstack is allocated; else dstack_in is used 
+ * as the thread's dstack
+ * returns -1 if current thread has already been initialized
+ */
+int
+dentre_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
+{
+	dcontext_t *dcontext;
+
+	bool reset_at_nth_thread_pending = false;
+	bool under_dentre_control = true;
+
+    APP_EXPORT_ASSERT(dentre_initialized || dentre_exited ||
+                      get_num_threads() == 0 IF_CLIENT_INTERFACE(|| client_thread),
+                      PRODUCT_NAME" not initialized");
+
+    if (INTERNAL_OPTION(nullcalls))
+        return SUCCESS;
+
+	/* synch point so thread creation can be prevented for critical periods */
+	mutex_lock(&thread_initexit_lock);
+
+	while(dentre_exited)
+	{
+//        DODEBUG_ONCE(LOG(GLOBAL, LOG_THREADS, 1, 
+//                         "Thread %d reached initialization point while dentr exiting, "
+//                         "waiting for app to exit\n", get_thread_id());); 
+        mutex_unlock(&thread_initexit_lock);
+		thread_yield();
+
+        /* just in case we want to support exited and then restarted at some 
+         * point */
+        mutex_lock(&thread_initexit_lock);
+	}
+	
+    if (is_thread_initialized()) 
+	{
+        mutex_unlock(&thread_initexit_lock);
+        return -1;
+    }
+
+	os_tls_init();
+
+}
+
+
+

@@ -67,6 +67,7 @@ ALL:
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} fragment.c               -c -o  ${OBJDIR}fragment.o;		\
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} perscache.c              -c -o  ${OBJDIR}perscache.o;		\
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} hotpatch.c               -c -o  ${OBJDIR}hotpatch.o;		\
+	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} mips/sideline.c          -c -o  ${OBJDIR}sideline.o;		\
 															\
 	cd ${OBJDIR};											 \
 	${CC} ${C_FLAG} ${LINK_FLAG} -nostartfiles  -o  libpreload.so $(OBJ_PRELOAD);		\

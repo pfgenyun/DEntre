@@ -82,6 +82,16 @@
 #define ASSERT_NOT_IMPLEMENTED(x) ASSERT_MESSAGE("Not implemented", x)
 
 
+/* only support apicheck for exported api's */
+#if defined(CLIENT_INTERFACE) || defined(DR_APP_EXPORTS)
+# define apicheck(x, msg) do {                   \
+    if (!(x))                                    \
+        external_error(__FILE__, __LINE__, msg); \
+} while (0)
+void external_error(char *file, int line, char *msg);
+#endif
+
+
 #ifdef CLIENT_INTERFACE
 # ifdef DEBUG
 #  define CLIENT_ASSERT(x, msg) apicheck(x, msg)
@@ -90,6 +100,13 @@
 # endif
 #else
 # define CLIENT_ASSERT(x, msg) ASSERT_MESSAGE(msg, x)
+#endif
+
+
+#ifdef DR_APP_EXPORTS
+# define APP_EXPORT_ASSERT(x, msg) apicheck(x, msg)
+#else
+# define APP_EXPORT_ASSERT(x, msg) ASSERT_MESSAGE(msg, x)
 #endif
 
 
@@ -728,5 +745,8 @@ size_t get_random_offset(size_t max_offset);
 #define ALIGN_FORWARD(x, alignment) \
     ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
 #define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment)-1)))
+
+
+#define HASHTABLE_SIZE(num_bits) (1U << (num_bits))
 
 #endif
