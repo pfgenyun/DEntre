@@ -17,12 +17,33 @@
  * and/or other materials provided with the distribution.
  */
 
+
+/*
+ * proc.c - processor-specific routines
+ */
+
+
 #include "../globals.h"
 
 size_t cache_line_size = 32;
 
 void 
 proc_init(void)
+{
+	/* need to be filled up */
+}
+
+
+size_t
+proc_get_cache_line_size()
+{
+	return cache_line_size;
+}
+
+
+/* Given an address or number of bytes sz, return a number >= sz that is divisible by the cache line size. */
+ptr_uint_t
+proc_bump_to_end_of_cache_line(ptr_uint_t sz)
 {
 	/* need to be filled up */
 }

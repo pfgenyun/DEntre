@@ -435,5 +435,12 @@ enum {
 #endif /* EXPOSE_INTERNAL_OPTIONS */
 
 
+/**
+ * Machine context structure.
+ */
+typedef struct _de_mcontext_t 
+{
+	/* need to be filled up */
+}de_mcontext_t;
 
-#endif
+#endif	/* ifndef _GLOBALS_SHARED_H_ */

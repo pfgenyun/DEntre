@@ -42,6 +42,7 @@
 #include "perscache.h"
 #include "hotpatch.h"
 #include "mips/sideline.h"
+#include "mips/proc.h"
 
 /* global thread-shared var */
 bool dentre_initialized = false;
@@ -353,6 +354,78 @@ is_thread_initialized(void)
 	return (get_thread_private_dcontext() != NULL);
 }
 
+dcontext_t *
+create_new_dentre_context(bool initial, byte *dstack_in)
+{
+	dcontext_t *dcontext;
+	size_t alloc = sizeof(dcontext_t) + proc_get_cache_line_size();
+	void *alloc_start = (void *)
+        ((TEST(SELFPROT_GLOBAL, dentre_options.protect_mask) &&
+          !TEST(SELFPROT_DCONTEXT, dentre_options.protect_mask)) ?
+         /* if protecting global but not dcontext, put whole thing in unprot mem */
+         global_unprotected_heap_alloc(alloc HEAPACCT(ACCT_OTHER)) :
+         global_heap_alloc(alloc HEAPACCT(ACCT_OTHER)));
+	dcontext = (dcontext_t *) proc_bump_to_end_of_cache_line((ptr_uint_t)alloc_start);
+
+	/* need to be filled up */
+
+    /* Put here all one-time dcontext field initialization 
+     * Make sure to update create_callback_dcontext to shared
+     * fields across callback dcontexts for the same thread.
+     */
+    /* must set to 0 so can tell if initialized for callbacks! */
+	memset(dcontext, 0x0, sizeof(dcontext_t));
+	dcontext->allocated_start = alloc_start;
+
+	/* we share a single dstack across all callbacks */
+	if(initial)
+	{
+		if(dstack_in = NULL)
+			dcontext->dstack = (byte *) stack_alloc(DENTRE_STACK_SIZE);
+		else
+			dcontext->dstack = dstack_in;
+	}
+	else
+	{
+		/* dstack may be pre-allocated only at thread init, not at callback */
+		ASSERT(dstack_in = NULL);
+	}
+
+#ifdef RETURN_STACK
+	/* need to be filled up */
+#endif
+	
+	if(TEST(SELFPROT_DCONTEXT, dentre_options.protect_mask))
+	{
+		dcontext->upcontext.separate_upcontext = 
+			global_unprotected_heap_alloc(sizeof(unprotected_context_t) HEAPACCT(ACCT_OTHER));
+
+        LOG(GLOBAL, LOG_TOP, 2, "new dcontext="PFX", dcontext->upcontext="PFX"\n",
+            dcontext, dcontext->upcontext.separate_upcontext);
+		dcontext->upcontext_ptr = dcontext->upcontext.separate_upcontext;
+	}
+	else
+		dcontext->upcontext_ptr = &(dcontext->upcontext.upcontext);
+
+#ifdef HOT_PATCHING_INTERFACE
+	/* need to be filled up */
+#endif
+
+	/* need to be filled up */
+	dcontext->owning_thread = get_thread_id();
+	dcontext->owning_process = get_process_id();
+
+    /* thread_record is set in add_thread */
+    /* all of the thread-private fcache and hashtable fields are shared
+     * among all dcontext instances of a thread, so the caller must
+     * set those fields
+     */
+    /* rest of dcontext initialization happens in initialize_dynamo_context(),
+     * which is executed for each dr_app_start() and each
+     * callback start
+     */
+	return dcontext;
+}
 
 /* thread-specific initialization 
  * if dstack_in is NULL, then a dstack is allocated; else dstack_in is used 
@@ -397,6 +470,8 @@ dentre_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
     }
 
 	os_tls_init();
+	dcontext = create_new_dentre_context(true/*initial*/, dstack_in);
+
 
 }
 

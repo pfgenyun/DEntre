@@ -62,10 +62,43 @@ typedef struct _coarse_info_t coarse_info_t;
 struct _future_fragment_t;
 typedef struct _future_fragment_t future_fragment_t;
 
+typedef struct
+{
+	de_mcontext_t mcontext;			/* real machine context (in arch_exports.h) */
+	int error;
+    bool at_syscall;                /* for shared deletion syscalls_synch_flush,
+                                     * as well as syscalls handled from dispatch,
+                                     * and for reset to identify when at syscalls
+                                     */
+} unprotected_context_t;
+
 struct _dcontext_t
 {
-	/* need to be filled up */
-	void *		heap_field;
+
+    /* if SELFPROT_DCONTEXT, must split dcontext into unprotected and
+     * protected fields depending on whether they must be read-only
+     * when in the code cache.
+     * we waste sizeof(unprotected_context_t) bytes to provide runtime flexibility:
+     */
+    union {
+        /* we use separate_upcontext if 
+         *    (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+         * else we use the inlined upcontext
+         */
+        unprotected_context_t *separate_upcontext;
+        unprotected_context_t upcontext;
+    } upcontext;
+    /* HACK for mips.asm lack of runtime param access: this is either
+     * a self-ptr (to inlined upcontext) or if we separate upcontext it points there.
+     */
+    unprotected_context_t *upcontext_ptr;
+    
+	byte *	dstack;	/* thread-private dynamo stack */	
+	thread_id_t		owning_thread;
+	process_id_t	owning_process;	/* handle shared address space w/o shared pid */
+	void *	allocated_start;	/* used for cache alignment */
+
+	void *	heap_field;
 
 };
 

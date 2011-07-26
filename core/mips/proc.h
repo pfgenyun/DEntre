@@ -26,12 +26,20 @@
 #ifndef _PROC_H_
 #define _PROC_H_	1
 
+#include "../globals.h"
+
 #define PAGE_SIZE	(4 * 1024)
 
 extern size_t cache_line_size;
+
 #define CACHE_LINE_SIZE	cache_line_size
 
 void proc_init(void);
 
+size_t 
+proc_get_cache_line_size();
+
+ptr_uint_t
+proc_bump_to_end_of_cache_line(ptr_uint_t sz);
 
 #endif
