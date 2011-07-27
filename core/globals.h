@@ -62,6 +62,28 @@ typedef struct _coarse_info_t coarse_info_t;
 struct _future_fragment_t;
 typedef struct _future_fragment_t future_fragment_t;
 
+
+
+/* where the current app thread's control is */
+typedef enum {
+    WHERE_APP=0, 
+    WHERE_INTERP,
+    WHERE_DISPATCH,
+    WHERE_MONITOR,
+    WHERE_SYSCALL_HANDLER,
+    WHERE_SIGNAL_HANDLER,
+    WHERE_TRAMPOLINE,
+    WHERE_CONTEXT_SWITCH,
+    WHERE_IBL,
+    WHERE_FCACHE,
+    WHERE_UNKNOWN,
+#ifdef HOT_PATCHING_INTERFACE
+    WHERE_HOTPATCH,
+#endif
+    WHERE_LAST
+} where_am_i_t;
+
+
 typedef struct
 {
 	de_mcontext_t mcontext;			/* real machine context (in arch_exports.h) */
@@ -93,12 +115,69 @@ struct _dcontext_t
      */
     unprotected_context_t *upcontext_ptr;
     
+
+    /* The next application pc to execute.
+     * Also used to store the cache pc to execute when entering the code cache,
+     * and set to the sentinel value BACK_TO_NATIVE_AFTER_SYSCALL for native_exec.
+     * FIXME: change to a union?
+     */
+	app_pc	next_tag;
+
+	linkstub_t *	last_exit;	/* last exit from cache */
 	byte *	dstack;	/* thread-private dynamo stack */	
+
+    /* These are expected to retain their values across an entire native execution.
+     * We assume that callbacks and native_exec executions are properly nested, and
+     * we don't share these across callbacks, using the original value on returning.
+     */
+	app_pc	native_exec_retval;		/* native_exec return address */
+	app_pc	native_exec_retloc;		/* native_exec return address app stack location */
+
+#ifdef RETURN_STACK
+	/* need to be filled up */
+#endif
+
+    /* Coarse-grain cache exits require extra state storage as they do not
+     * use per-exit separate data structures
+     */
+	union
+	{
+        /* Indirect branches store on exit the source tag (with the type of
+         * branch coming from fake linkstubs), while direct store the source unit
+         */
+		app_pc	src_tag;
+		coarse_info_t *dir_exit;
+	}coarse_exit;
+
+	/************* end of offset-crucial fields *********************/
+
+    /* FIXME: now that we initialize a new thread's dcontext right away, and
+     * a new callback's as well, we should be able to get rid of this
+     */
+	bool	initialized;	/* has this context been used yet? */
 	thread_id_t		owning_thread;
 	process_id_t	owning_process;	/* handle shared address space w/o shared pid */
+	where_am_i_t	whereami;	/* where control is at the moment */
 	void *	allocated_start;	/* used for cache alignment */
+	fragment_t * last_fragment;	/* cached value of linkstub_fragment(last_exit) */
+
+    reg_t          sys_param0;      /* used for post_system_call */
+    reg_t          sys_param1;      /* used for post_system_call */
+    reg_t          sys_param2;      /* used for post_system_call */
+    reg_t          sys_param3;      /* used for post_system_call */
+
+#ifdef N64
+	bool	n64_mode;
+#endif
 
 	void *	heap_field;
+
+	bool	signals_pending;
+
+    /* must store post-intercepted-syscall target to allow using normal
+     * dispatch() for native_exec syscalls
+     */
+	app_pc	native_exec_postsyscall;	
 
 };
 

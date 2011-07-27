@@ -427,6 +427,63 @@ create_new_dentre_context(bool initial, byte *dstack_in)
 	return dcontext;
 }
 
+
+
+/* This routine is called not only at thread initialization,
+ * but for every callback, etc. that gets a fresh execution
+ * environment!
+ */
+void 
+initialize_dentre_context(dcontext_t *dcontext)
+{
+	
+    /* we can't just zero out the whole thing b/c we have persistent state
+     * (fields kept across callbacks, like dstack, module-private fields, next & prev, etc.)
+     */
+	memset(dcontext->upcontext_ptr, 0, sizeof(unprotected_context_t));
+	dcontext->initialized = true;
+	dcontext->whereami = WHERE_APP;
+	dcontext->next_tag = NULL;
+	dcontext->native_exec_retval = NULL;
+	dcontext->native_exec_retloc = NULL;
+	dcontext->native_exec_postsyscall = NULL;
+#ifdef RETURN_STACK
+	/* need to be filled up */
+#endif
+
+#ifdef N64
+	/* need to be filled up */
+#endif
+
+	dcontext->sys_param0 = 0;
+	dcontext->sys_param1 = 0;
+	dcontext->sys_param2 = 0;
+
+	dcontext->signals_pending = false;
+
+	set_last_exit(dcontext, (linkstub_t *) get_starting_linkstub);
+
+#ifdef NATIVE_RETURN
+	/* need to be filled up */
+#endif
+
+#ifdef PROFILE_RDTSC
+	/* need to be filled up */
+#endif
+
+#ifdef DEBUG
+	/* need to be filled up */
+#endif
+
+#ifdef HOT_PATCHING_INTERFACE 
+	/* need to be filled up */
+#endif
+
+    /* We don't need to initialize dcontext->coarse_exit as it is only
+     * read when last_exit indicates a coarse exit, which sets the fields.
+     */
+}
+
 /* thread-specific initialization 
  * if dstack_in is NULL, then a dstack is allocated; else dstack_in is used 
  * as the thread's dstack
@@ -471,6 +528,7 @@ dentre_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
 
 	os_tls_init();
 	dcontext = create_new_dentre_context(true/*initial*/, dstack_in);
+	initialize_dentre_context(dcontext);
 
 
 }

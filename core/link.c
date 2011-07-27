@@ -27,6 +27,8 @@
 #include "heap.h"
 #include "vmareas.h"
 
+static const linkstub_t linkstub_starting = { LINK_FAKE, 0};
+
 static void
 coarse_stubs_init();
 
@@ -61,6 +63,17 @@ link_init()
 	coarse_stubs_init();
 }
 
+void
+set_last_exit(dcontext_t *dcontext, linkstub_t *l)
+{
+	/* need to be filled up */
+}
+
+const linkstub_t *
+get_starting_linkstub()
+{
+	return &linkstub_starting;
+}
 
 
 /***************************************************************************
