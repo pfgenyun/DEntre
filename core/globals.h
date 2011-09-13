@@ -62,6 +62,8 @@ typedef struct _coarse_info_t coarse_info_t;
 struct _future_fragment_t;
 typedef struct _future_fragment_t future_fragment_t;
 
+#include "mips/arch_exports.h"
+#include "linux/os_exports.h"
 
 
 /* where the current app thread's control is */
@@ -179,11 +181,14 @@ struct _dcontext_t
      */
 	app_pc	native_exec_postsyscall;	
 
+
+    /* we keep an absolute address pointer to our tls state so that we
+     * can access it from other threads
+     */
+    local_state_t *local_state;
+
 };
 
-
-#include "mips/arch_exports.h"
-#include "linux/os_exports.h"
 
 /* size of each Dynamo thread-private stack */
 #define DENTRE_STACK_SIZE dentre_options.stack_size	/* 20k or 12k*/
@@ -205,6 +210,8 @@ typedef struct _thread_record_t
  * we never resize, assuming won't be seeing more than a few hundred threads
  */
 #define ALL_THREADS_HASH_BITS 9
+void add_thread(process_id_t pid, thread_id_t tid,
+				bool under_dynamo_control, dcontext_t *dcontext);
 int get_num_threads(void);
 
 int dentre_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread));

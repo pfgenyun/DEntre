@@ -20,7 +20,7 @@
 #ifndef _ARCH_EXPORTS_H_
 #define _ARCH_EXPORTS_H_	1
 
-#include "../globals.h"
+//#include "../globals.h"
 
 /* Translation table entry (case 3559).
  * PR 299783: for now we only support pc translation, not full arbitrary reg
@@ -146,5 +146,7 @@ typedef struct _local_state_extended_t
 	spill_state_t spill_space;
 	table_stat_state_t table_space;
 }local_state_extended_t;
+
+#define TLS_DCONTEXT_SLOT	((ushort)offsetof(spill_state_t, dcontext))
 
 #endif

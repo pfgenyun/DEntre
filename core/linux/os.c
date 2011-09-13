@@ -36,6 +36,7 @@
 #include "../vmareas.h"
 #include "../heap.h"
 
+#include <stddef.h>	/* for offsetof */
 
 /* must be after N64 is defined */
 #ifdef N64
@@ -642,6 +643,19 @@ get_thread_private_dcontext(void)
 	/* need to be filled up */
 }
 
+/* sets the thread-private dcontext pointer for the calling thread */
+void
+set_thread_private_dcontext(dcontext_t *dcontext)
+{
+#ifdef HAVE_TLS
+	ushort offs = TLS_DCONTEXT_OFFSET;
+	ASSERT();
+	WRITE_TLS_SLOT(offs, dcontext);		/* base reg is SEG register */
+#else
+	/* need to be filled up */
+#endif
+}
+
 /* yield the current thread */
 void 
 thread_yield()
@@ -680,7 +694,41 @@ typedef struct _os_local_state_t
 #ifdef CLIENT_INTERFACE
     void *client_tls[MAX_NUM_CLIENT_TLS];
 #endif
-}os_local_state_t;
+} os_local_state_t;
+
+#define TLS_LOCAL_STATE_OFFSET (offsetof(os_local_state_t, state))
+
+/* offset from top of page */
+#define TLS_OS_LOCAL_STATE     0x00
+
+#define TLS_SELF_OFFSET        (TLS_OS_LOCAL_STATE + offsetof(os_local_state_t, self))
+#define TLS_THREAD_ID_OFFSET   (TLS_OS_LOCAL_STATE + offsetof(os_local_state_t, tid))
+#define TLS_DCONTEXT_OFFSET    (TLS_OS_LOCAL_STATE + TLS_DCONTEXT_SLOT)
+
+
+#define WRITE_TLS_SLOT(idx, var)	
+#define READ_TLS_SLOT(idx, var)	
+
+local_state_extended_t *
+get_local_state_extended()
+{
+    os_local_state_t *os_tls;
+    ushort offs = TLS_SELF_OFFSET;
+    ASSERT(is_segment_register_initialized());
+    READ_TLS_SLOT(offs, os_tls);
+    return &(os_tls->state);
+}
+
+
+local_state_t *
+get_local_state()
+{
+#ifdef HAVE_TLS
+	return (local_state_t *)get_local_state_extended();
+#else
+	return NULL;
+#endif
+}
 
 
 void

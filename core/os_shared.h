@@ -45,6 +45,13 @@ thread_id_t get_tls_thread_id(void);
 thread_id_t get_sys_thread_id(void);
 void thread_yield(void);
 dcontext_t * get_thread_private_dcontext(void);
+void set_thread_private_dcontext(dcontext_t *dcontext);
+
+struct _local_state_t; /* in arch_exports.h */
+struct _local_state_extended_t; /* in arch_exports.h */
+struct _local_state_t *get_local_state(void);
+struct _local_state_extended_t *get_local_state_extended(void);
+
 
 void os_tls_init(void);
 

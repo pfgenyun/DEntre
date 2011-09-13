@@ -484,6 +484,13 @@ initialize_dentre_context(dcontext_t *dcontext)
      */
 }
 
+
+void add_thread(process_id_t pid, thread_id_t tid, 
+				bool under_dentre_control, dcontext_t *dcontext)
+{
+	/* need to be filled up */
+}
+
 /* thread-specific initialization 
  * if dstack_in is NULL, then a dstack is allocated; else dstack_in is used 
  * as the thread's dstack
@@ -529,7 +536,31 @@ dentre_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
 	os_tls_init();
 	dcontext = create_new_dentre_context(true/*initial*/, dstack_in);
 	initialize_dentre_context(dcontext);
+	set_thread_private_dcontext(dcontext);
 
+    /* sanity check */
+    ASSERT(get_thread_private_dcontext() == dcontext);
+
+	/* set local state pointer for access from other threads */
+	dcontext->local_state = get_local_state();
+
+    /* For hotp_only, the thread should run native, not under dr.  However,
+     * the core should still get control of the thread at hook points to track 
+     * what the application is doing & at patched points to execute hot patches.
+     * It is the same for thin_client except that there are fewer hooks, only to
+     * follow children.
+     */
+    if (RUNNING_WITHOUT_CODE_CACHE())
+        under_dentre_control = false;
+
+    /* add entry to thread hashtable before creating logdir so have thread num.
+     * otherwise we'd like to do this only after we'd fully initialized the thread, but we
+     * hold the thread_initexit_lock, so nobody should be listing us -- thread_lookup
+     * on other than self, or a thread list, should only be done while the initexit_lock
+     * is held.  CHECK: is this always correct?  thread_lookup does have an assert
+     * to try and enforce but cannot tell who has the lock.
+     */
+	add_thread(get_process_id(), get_thread_id(), under_dentre_control, dcontext);
 
 }
 
