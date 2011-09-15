@@ -18,10 +18,18 @@
  */
 
 #include "../globals.h"
+#include "arch.h"
 
 /* arch-specific initializations */
 void 
 arch_init()
 {
 	/* need to be filled up */
+}
+
+void
+arch_thread_init(dcontext_t *dcontext)
+{
+	byte *pc;
+	generated_code_t *code;
 }

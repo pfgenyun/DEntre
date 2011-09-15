@@ -749,4 +749,6 @@ size_t get_random_offset(size_t max_offset);
 
 #define HASHTABLE_SIZE(num_bits) (1U << (num_bits))
 
+# define HASH_FUNC_BITS(val, num_bits) 0	/* need to be filled up */
+
 #endif

@@ -21,7 +21,14 @@
 
 #include "../globals.h"
 #include "../utils.h"
+#include "../heap.h"
 
+#include <string.h>
+
+typedef struct _thread_sig_info_t
+{
+	/* need to be filled up */
+} thread_sig_info_t;
 
 static bool
 os_itimers_thread_shared()
@@ -62,4 +69,22 @@ signal_init()
 {
 	IF_N64(ASSERT(ALIGNED(offsetof(sigpending_t, fpstate), 16)));
 	os_itimers_thread_shared();
+}
+
+
+void
+signal_thread_init(dcontext_t *dcontext)
+{
+#ifdef HAVE_SIGALTSTACK
+	int rc;
+#endif
+
+	thread_sig_info_t *info = HEAP_TYPE_ALLOC(dcontext, thread_sig_info_t,
+												ACCT_OTHER, PROTECTED);
+	dcontext->signal_field = (void *) info;
+
+	/* all fields want to be initialized to 0 */
+	memset(info, 0, sizeof(thread_sig_info_t));
+
+	/* need to be filled up */
 }

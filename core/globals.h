@@ -85,6 +85,18 @@ typedef enum {
     WHERE_LAST
 } where_am_i_t;
 
+typedef struct _thread_record_t
+{
+	thread_id_t id;		/* thread id */
+	process_id_t pid;	/* thread group id */
+	bool execve;		/* exiting due to execve*/
+
+	uint num;							/* creation ordinal */
+	bool under_dentre_control;			/* used for deciding whether to intercept events */
+	dcontext_t *dcontext;					/* allows other threads to see this thread's context */
+	struct _thread_record_t *next;
+}thread_record_t;
+
 
 typedef struct
 {
@@ -159,6 +171,7 @@ struct _dcontext_t
 	bool	initialized;	/* has this context been used yet? */
 	thread_id_t		owning_thread;
 	process_id_t	owning_process;	/* handle shared address space w/o shared pid */
+	thread_record_t	*thread_record;	/* so don't have to do a thread_lookup */
 	where_am_i_t	whereami;	/* where control is at the moment */
 	void *	allocated_start;	/* used for cache alignment */
 	fragment_t * last_fragment;	/* cached value of linkstub_fragment(last_exit) */
@@ -173,9 +186,14 @@ struct _dcontext_t
 #endif
 
 	void *	heap_field;
+	void *	os_field;
+	void *	synch_field;
+
+	void *	signal_field;
 
 	bool	signals_pending;
 
+	void *	private_code;		/* various thread-private routines  generated code */
     /* must store post-intercepted-syscall target to allow using normal
      * dispatch() for native_exec syscalls
      */
@@ -192,18 +210,6 @@ struct _dcontext_t
 
 /* size of each Dynamo thread-private stack */
 #define DENTRE_STACK_SIZE dentre_options.stack_size	/* 20k or 12k*/
-
-typedef struct _thread_record_t
-{
-	thread_id_t id;		/* thread id */
-	process_id_t pid;	/* thread group id */
-	bool execve;		/* exiting due to execve*/
-
-	uint num;							/* creation ordinal */
-	bool under_dentre_control;			/* used for deciding whether to intercept events */
-	dcontext_t *dcontext;					/* allows other threads to see this thread's context */
-	struct _thread_record_t *next;
-}thread_record_t;
 
 /* in dentre.c */
 /* 9-bit addressed hash table takes up 2K, has capacity of 512

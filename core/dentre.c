@@ -103,6 +103,11 @@ static void data_section_exit();
 
 de_statistics_t *stats = NULL;
 
+
+DECLARE_FREQPROT_VAR(static uint threads_ever_count, 0);
+
+DECLARE_CXTSWPROT_VAR(mutex_t all_threads_lock, INIT_LOCK_FREE(all_threads_lock));
+
 /* FIXME : not static so os.c can hand walk it for dump core */
 /* FIXME: use new generic_table_t and generic_hash_* routines */
 thread_record_t ** all_threads; /* ALL_THREADS_HASH_BITS-bit addressed hash table */
@@ -488,7 +493,34 @@ initialize_dentre_context(dcontext_t *dcontext)
 void add_thread(process_id_t pid, thread_id_t tid, 
 				bool under_dentre_control, dcontext_t *dcontext)
 {
-	/* need to be filled up */
+	thread_record_t *tr;
+	uint hindex;
+
+	ASSERT(all_threads != NULL);
+
+	/* add entry to thread hashtable */
+	tr = (thread_record_t *)global_heap_alloc(sizeof(thread_record_t)
+											HEAPACCT(ACCT_THREAD_MGT));
+
+	tr->pid = pid;
+	tr->execve = false;
+	tr->id = tid;
+	ASSERT(tid != INVALID_THREAD_ID); /* ensure os never assigns invalid id to a thread */
+	tr->under_dentre_control = under_dentre_control;
+	tr->dcontext = dcontext;
+	if(dcontext != NULL)
+		dcontext->thread_record = tr;
+
+	mutex_lock(&all_threads_lock);
+	tr->num = threads_ever_count++;
+	hindex = HASH_FUNC_BITS(tr->id, ALL_THREADS_HASH_BITS);
+	tr->next = all_threads[hindex];
+	all_threads[hindex] = tr;
+	/* must be inside all_threads_lock to avoid race w/ get_list_of_threads */
+//    RSTATS_ADD_PEAK(num_threads, 1);
+//    RSTATS_INC(num_threads_created);
+	num_known_threads++;
+	mutex_unlock(&all_threads_lock);
 }
 
 /* thread-specific initialization 
@@ -562,6 +594,23 @@ dentre_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
      */
 	add_thread(get_process_id(), get_thread_id(), under_dentre_control, dcontext);
 
+	/* need to be filled up */
+
+#ifdef DEBUG
+	/* need to be filled up */
+#endif
+
+#ifdef DEADLOCK_AVOIDANCE
+	/* need to be filled up */
+#endif
+
+#ifdef KSTATS
+	/* need to be filled up */
+#endif
+
+	os_thread_init(dcontext);
+	arch_thread_init(dcontext);
+	synch_thread_init(dcontext);
 }
 
 

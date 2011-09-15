@@ -17,33 +17,25 @@
  * and/or other materials provided with the distribution.
  */
 
+#ifndef MIPS_ARCH_H
+#define MIPS_ARCH_H
 
-/*
- * thread.c - thread synchronization
+
+/* Each thread needs its own copy of these routines, but not all
+ * routines here are created in a thread-private: we could save space
+ * by splitting into two separate structs.
+ *
+ * On MIPS , we only have thread-shared generated routines,
+ * including do_syscall and shared_syscall and detach's post-syscall
+ * continuation.
  */
-
-#include "globals.h"
-#include "heap.h"
-
-/* Thread-local data
- */
-typedef struct _thread_synch_data_t
+typedef struct _generated_code_t
 {
-	/* need to be filled up */
-}thread_synch_data_t;
-
-void
-synch_init(void)
-{
-	/* nothing */
-}
-
-void
-synch_thread_init(dcontext_t *dcontext)
-{
-	thread_synch_data_t *tsd = (thread_synch_data_t *)
-		heap_alloc(dcontext, sizeof(thread_synch_data_t) HEAPACCT(ACCT_OTHER));
-	dcontext->synch_field = (void *) tsd;
+	byte *fcache_enter;
+	byte *fcache_return;
 
 	/* need to be filled up */
-}
+
+}generated_code_t;
+
+#endif

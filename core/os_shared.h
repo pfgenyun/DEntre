@@ -54,6 +54,7 @@ struct _local_state_extended_t *get_local_state_extended(void);
 
 
 void os_tls_init(void);
+void os_thread_init(dcontext_t *dcontext);
 
 /* file operations */
 /* defaults to read only access, if write is not set ignores others */

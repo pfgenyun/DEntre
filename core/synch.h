@@ -22,4 +22,7 @@
 
 void synch_init(void);
 
+void 
+synch_thread_init(dcontext_t *dcontext);
+
 #endif

@@ -149,4 +149,6 @@ typedef struct _local_state_extended_t
 
 #define TLS_DCONTEXT_SLOT	((ushort)offsetof(spill_state_t, dcontext))
 
+void arch_thread_init(dcontext_t *dcontext);
+
 #endif

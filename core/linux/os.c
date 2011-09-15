@@ -705,7 +705,7 @@ typedef struct _os_local_state_t
 #define TLS_THREAD_ID_OFFSET   (TLS_OS_LOCAL_STATE + offsetof(os_local_state_t, tid))
 #define TLS_DCONTEXT_OFFSET    (TLS_OS_LOCAL_STATE + TLS_DCONTEXT_SLOT)
 
-
+/* need to be filled up */
 #define WRITE_TLS_SLOT(idx, var)	
 #define READ_TLS_SLOT(idx, var)	
 
@@ -754,3 +754,25 @@ os_tls_init()
 }
 
 
+void
+os_thread_init(dcontext_t *dcontext)
+{
+	os_thread_data_t *osdt = (os_thread_data_t *)
+		heap_alloc(dcontext, sizeof(os_thread_data_t) HEAPACCT(ACCT_OTHER));
+	dcontext->os_field = (void *)osdt;
+
+    /* make sure stack fields, etc. are 0 now so they can be initialized on demand
+     * (don't have app esp register handy here to init now)
+     */
+	memset(osdt, 0, sizeof(*osdt));
+
+#ifdef RETURN_AFTER_CALL
+	/* need to be filled up */
+#endif
+
+	ASSIGN_INIT_LOCK_FREE(osdt->suspend_lock, suspend_lock);
+
+	signal_thread_init(dcontext);
+
+	/* need to be filled up */
+}
