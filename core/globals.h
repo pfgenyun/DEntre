@@ -186,6 +186,7 @@ struct _dcontext_t
 #endif
 
 	void *	heap_field;
+	void *	vm_areas_field;
 	void *	os_field;
 	void *	synch_field;
 

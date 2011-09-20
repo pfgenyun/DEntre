@@ -21,6 +21,7 @@
 #include "vmareas.h"
 #include "heap.h"
 
+#include <string.h>
 
 enum {
     /* VM_ flags to distinguish region types 
@@ -118,6 +119,17 @@ typedef struct vm_area_t
 }vm_area_t;
 
 
+/* for each thread we record all executable areas, to make it faster
+ * to decide whether we need to flush any fragments on an munmap
+ */
+typedef struct thread_data_t
+{
+	vm_area_vector_t areas;
+
+	/* need to be filled up  */
+}thread_data_t;
+
+
 static vm_area_vector_t *dentre_areas;
 
 
@@ -148,6 +160,13 @@ DECLARE_FREQPROT_VAR(static bool dentre_areas_uptodate, true);
 
 #define LOCK_VECTOR(v, release_lock, RW)	/* need to be filled up */
 #define UNLOCK_VECTOR(v, release_lock, RW)	/* need to be filled up */
+
+
+#define VMVECTOR_INITIALIZE_VECTOR(v, flags, lockname) do {    \
+        vmvector_init_vector((v), (flags));            \
+        ASSIGN_INIT_READWRITE_LOCK_FREE((v)->lock, lockname); \
+    } while (0);
+
 
 void 
 dentre_vm_areas_lock()
@@ -376,5 +395,27 @@ add_dentre_vm_area(app_pc start, app_pc end, uint prot, bool unmod_image _IF_DEB
 
 	return true;
 }
+
+
+void 
+vm_areas_thread_reset_init(dcontext_t * dcontext)
+{
+	thread_data_t *data = (thread_data_t *)dcontext->vm_areas_field;
+	memset(dcontext->vm_areas_field, 0, sizeof(thread_data_t));
+	VMVECTOR_INITIALIZE_VECTOR(&data->areas, VECTOR_FRAGMENT_LIST, thread_vm_areas);
+
+    /* data->areas.lock is never used, but we may want to grab it one day, 
+       e.g. to print other thread areas */
+}
+
+void
+vm_areas_thread_init(dcontext_t * dcontext)
+{
+	thread_data_t *data = HEAP_TYPE_ALLOC(dcontext, thread_data_t, ACCT_OTHER, PROTECTED);
+	dcontext->vm_areas_field = data;
+	vm_areas_thread_reset_init(dcontext);
+}
+
+
 
 

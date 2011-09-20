@@ -611,6 +611,9 @@ dentre_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
 	os_thread_init(dcontext);
 	arch_thread_init(dcontext);
 	synch_thread_init(dcontext);
+
+	if(!DENTRE_OPTION(thin_client))
+		vm_areas_thread_init(dcontext);
 }
 
 
