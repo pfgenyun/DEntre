@@ -21,7 +21,9 @@
 #include "utils.h"
 #include "monitor.h"
 #include "fragment.h"
+#include "heap.h"
 
+#include <string.h>
 
 /* SPEC2000 applu has a trace head entry fragment of size 40K! */
 /* streamit's fft had a 944KB bb (ridiculous unrolling) */
@@ -44,4 +46,18 @@ monitor_init()
 	 * this does not include exit stubs
 	 */
 	ASSERT(MAX_TRACE_BUFFER_SIZE <= MAX_FRAGMENT_SIZE);
+}
+
+void
+monitor_thread_init(dcontext_t *dcontext)
+{
+	monitor_data_t *md;
+	
+	md = (monitor_data_t *)
+		heap_alloc(dcontext, sizeof(monitor_data_t) HEAPACCT(ACCT_TRACE));
+	dcontext->monitor_field = (void *)md;
+	memset(md, 0, sizeof(monitor_data_t));
+
+	/* need to be filled up */
+
 }

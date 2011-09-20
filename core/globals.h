@@ -185,6 +185,8 @@ struct _dcontext_t
 	bool	n64_mode;
 #endif
 
+	void *	monitor_field;
+	void *	fcache_field;
 	void *	heap_field;
 	void *	vm_areas_field;
 	void *	os_field;

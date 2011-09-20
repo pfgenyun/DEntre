@@ -255,7 +255,7 @@ typedef struct _thread_units_t
 	cache_pc pending_unmap_pc;
 	size_t pending_unmap_size;
 	/* are there units waiting to be flushed at a safe spot? */
-	bool pengding_flush;
+	bool pending_flush;
 }thread_units_t;
 
 
@@ -521,3 +521,30 @@ fcache_init()
 	fcache_reset_init();
 }
 
+
+static void 
+fcache_thread_reset_init(dcontext_t *dcontext)
+{
+	/* nothing */
+}
+
+void
+fcache_thread_init(dcontext_t *dcontext)
+{
+	thread_units_t *tu = (thread_units_t *) heap_alloc(dcontext, sizeof(thread_units_t)
+												HEAPACCT(ACCT_OTHER));
+	dcontext->fcache_field = (void *)tu;
+    /* don't build trace cache until we actually build a trace
+     * this saves memory for both DENTRE_OPTION(disable_traces) and for
+     * idle threads that never do much
+     */
+	tu->trace = NULL;
+    /* in fact, let's delay both, cost is single conditional in fcache_add_fragment,
+     * once we have that conditional for traces it's no extra cost for bbs
+     */
+	tu->bb = NULL;
+	tu->pending_unmap_pc = NULL;
+	tu->pending_flush = false;
+
+	fcache_thread_reset_init(dcontext);
+}

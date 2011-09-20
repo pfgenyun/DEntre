@@ -45,4 +45,9 @@ void fcache_low_on_memory();
 
 void fcache_init(void);
 
+void
+fcache_thread_init(dcontext_t *dcontext);
+
+
+
 #endif

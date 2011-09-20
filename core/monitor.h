@@ -20,6 +20,15 @@
 #ifndef _MONITOR_H_
 #define _MONITOR_H_	1
 
+//#include "globals.h"
+
+typedef struct _monitor_data_t
+{
+	/* need to be filled up  */
+}monitor_data_t;
+
+
 void monitor_init(void);
+void monitor_thread_init(dcontext_t *dcontext);
 
 #endif

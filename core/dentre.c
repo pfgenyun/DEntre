@@ -43,6 +43,7 @@
 #include "hotpatch.h"
 #include "mips/sideline.h"
 #include "mips/proc.h"
+#include "fcache.h"
 
 /* global thread-shared var */
 bool dentre_initialized = false;
@@ -614,6 +615,9 @@ dentre_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
 
 	if(!DENTRE_OPTION(thin_client))
 		vm_areas_thread_init(dcontext);
+
+	monitor_thread_init(dcontext);
+	fcache_thread_init(dcontext);
 }
 
 
