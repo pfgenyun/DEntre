@@ -618,6 +618,28 @@ dentre_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
 
 	monitor_thread_init(dcontext);
 	fcache_thread_init(dcontext);
+	link_thread_init(dcontext);
+	fragment_thread_init(dcontext);
+
+
+    if (!DENTRE_OPTION(thin_client)) {
+#ifdef CLIENT_INTERFACE
+		/* put client last, may depend on other thread inits.
+		 * Note that we are calling this prior to instrument_init()
+		 * now (PR 216936), which is required to initialize
+		 * the client dcontext field prior to instrument_init().
+		 */
+		instrument_thread_init(dcontext, client_thread);
+#endif
+
+#ifdef SIDELINE
+		/* need to be filled up */
+#endif
+    }
+
+	/* need to be filled up */
+
+	return SUCCESS;
 }
 
 

@@ -35,6 +35,13 @@ coarse_stubs_init();
 void * stub_heap;
 
 
+/* used to hold important fields for last_exits that are flushed */
+typedef struct thread_link_data_t
+{
+	/* need to be filled up */
+} thread_link_data_t;
+
+
 /* We save 1 byte per stub by not aligning to 16/24 bytes, since
  * infrequently executed and infrequently accessed (heap free list
  * adds to start so doesn't walk list).
@@ -61,6 +68,17 @@ link_init()
 {
 	link_reset_init();
 	coarse_stubs_init();
+}
+
+
+void
+link_thread_init(dcontext_t *dcontext)
+{
+	thread_link_data_t *ldata = 
+		HEAP_TYPE_ALLOC(dcontext, thread_link_data_t, ACCT_OTHER, PROTECTED);
+	dcontext->link_field = (void *) ldata;
+
+	/* need to be filled up */
 }
 
 void

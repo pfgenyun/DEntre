@@ -185,4 +185,9 @@ fragment_init(void);
 void 
 fragment_reset_init(void);
 
+void 
+fragment_thread_init(dcontext_t *dcontext);
+void 
+fragment_thread_reset_init(dcontext_t *dcontext);
+
 #endif

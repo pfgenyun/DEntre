@@ -65,6 +65,15 @@ typedef struct _future_fragment_t future_fragment_t;
 #include "mips/arch_exports.h"
 #include "linux/os_exports.h"
 
+#ifdef CLILENT_INTERFACE
+/* Client interface-specific data for dcontexts */
+typedef struct _client_interface_t
+{
+	/* need to be filled up */
+} client_interface_t;
+#else
+#endif
+
 
 /* where the current app thread's control is */
 typedef enum {
@@ -185,8 +194,10 @@ struct _dcontext_t
 	bool	n64_mode;
 #endif
 
+	void *	link_field;
 	void *	monitor_field;
 	void *	fcache_field;
+	void *	fragment_field;
 	void *	heap_field;
 	void *	vm_areas_field;
 	void *	os_field;
@@ -202,6 +213,11 @@ struct _dcontext_t
      */
 	app_pc	native_exec_postsyscall;	
 
+
+#ifdef CLIENT_INTERFACE
+	/* client interface-specific data  */
+	client_data_t *client_data;
+#endif
 
     /* we keep an absolute address pointer to our tls state so that we
      * can access it from other threads

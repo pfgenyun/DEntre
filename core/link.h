@@ -148,6 +148,9 @@ struct _linkstub_t
 void link_init(void);
 void link_reset_init(void);
 
+void 
+link_thread_init(dcontext_t *dcontext);
+
 void
 set_last_exit(dcontext_t *dcontext, linkstub_t *l);
 

@@ -22,4 +22,7 @@
 
 void instrument_load_client_libs(void);
 
+void
+instrument_thread_init(dcontext_t *dcontext, bool client_thread);
+
 #endif

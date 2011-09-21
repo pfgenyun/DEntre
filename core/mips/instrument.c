@@ -212,5 +212,23 @@ instrument_load_client_libs(void)
     }
 }
 
+
+void 
+instrument_thread_init(dcontext_t *dcontext, bool client_thread)
+{
+    /* Note that we're called twice for the initial thread: once prior
+     * to instrument_init() (PR 216936) to set up the dcontext client
+     * field (at which point there should be no callbacks since client
+     * has not had a chance to register any), and once after
+     * instrument_init() to call the client event.
+     */
+	if(dcontext->client_data == NULL)
+		dcontext->client_data = HEAP_TYPE_ALLOC(dcontextm, client_data_t,
+												ACCT_OTHER, UNPROTECTED);
+	memset(dcontext->client_data, 0x0, sizeof(client_data_t));
+
+	/* need to be filled up  */
+}
+
 #endif
 

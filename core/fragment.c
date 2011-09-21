@@ -20,6 +20,7 @@
 #include "globals.h"
 #include "utils.h"
 #include "fragment.h"
+#include "heap.h"
 
 
 /* Global count of flushes, used as a timestamp for shared deletion.
@@ -128,4 +129,34 @@ fragment_init()
 #if defined(INTERNAL) || defined(CLIENT_INTERFACE)
 	/* need to be filled up */
 #endif
+}
+
+
+void 
+fragment_thread_reset_init(dcontext_t *dcontext)
+{
+	/* need to be filled up */
+}
+
+void 
+fragment_thread_init(dcontext_t *dcontext)
+{
+    /* we allocate per_thread_t in the global heap solely for self-protection,
+     * even when turned off, since even with a lot of threads this isn't a lot of
+     * pressure on the global heap
+     */
+	per_thread_t *pt;
+
+    /* don't initialize un-needed data for hotp_only & thin_client.
+     * FIXME: could set htable initial sizes to 0 for all configurations, instead.
+     * per_thread_t is pretty big, so we avoid it, though it costs us checks for
+     * hotp_only in the islinking-related routines.
+     */
+    if (RUNNING_WITHOUT_CODE_CACHE())
+        return;
+
+	pt = (per_thread_t *)global_heap_alloc(sizeof(per_thread_t) HEAPACCT(ACCT_OTHER));
+	dcontext->fragment_field = (void *) pt;
+
+	framgment_reset_init(dcontext);
 }
