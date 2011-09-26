@@ -17,14 +17,27 @@
  * and/or other materials provided with the distribution.
  */
 
-#ifndef _INSTRUMENT_H_
-#define _INSTRUMENT_H_	1
 
-void instrument_load_client_libs(void);
+/* file "dispatch.h" */
 
-void
-instrument_thread_init(dcontext_t *dcontext, bool client_thread);
+#ifndef _DISPATCH_H_
+#define _DISPATCH_H_ 1
 
-void instrument_init(void);
+
+/* hooks on entry/exit to/from DE */
+#define NO_HOOK ((void (*)(void)) NULL)
+
+#define HOOK_ENABLED_HELPER SELF_PROTECT_ON_CXT_SWITCH
+
+#define HOOK_ENABLED (HOOK_ENABLED_HELPER || INTERNAL_OPTION(single_thread_in_DE))
+
+#define ENTER_DE_HOOK (HOOK_ENABLED ? entering_dentre : NO_HOOK)
+#define EXIT_DE_HOOK  (HOOK_ENABLED ? exiting_dentre : NO_HOOK)
+
+#define ENTERING_DE() do {   \
+        if (HOOK_ENABLED)    \
+            ENTER_DE_HOOK(); \
+    } while (0);
+
 
 #endif

@@ -241,6 +241,11 @@ int get_num_threads(void);
 
 int dentre_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread));
 
+/* enter/exit DE hooks */
+void entering_dentre(void);
+void exiting_dentre(void);
+
+
 #define GLOBAL_DCONTEXT	((dcontext_t *)PTR_UINT_MINUS_1)
 
 #endif

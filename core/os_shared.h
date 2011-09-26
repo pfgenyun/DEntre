@@ -56,6 +56,9 @@ struct _local_state_extended_t *get_local_state_extended(void);
 void os_tls_init(void);
 void os_thread_init(dcontext_t *dcontext);
 
+int find_dentre_library_vm_areas(void);
+int find_executable_vm_areas(void);
+
 /* file operations */
 /* defaults to read only access, if write is not set ignores others */
 #define OS_OPEN_READ        0x01
@@ -231,6 +234,11 @@ extern uint datasec_writable_cxtswprot;
     START_DATA_SECTION(FREQ_PROTECTED_SECTION, "w")           \
     var VAR_IN_SECTION(FREQ_PROTECTED_SECTION) = __VA_ARGS__; \
     END_DATA_SECTION() 
+
+
+#define SELF_PROTECT_ON_CXT_SWITCH \
+    (TESTANY(SELFPROT_ON_CXT_SWITCH, DENTRE_OPTION(protect_mask)) \
+     || INTERNAL_OPTION(single_privileged_thread))
 
 
 #if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)

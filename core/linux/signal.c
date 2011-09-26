@@ -30,6 +30,16 @@ typedef struct _thread_sig_info_t
 	/* need to be filled up */
 } thread_sig_info_t;
 
+
+/* i#27: custom data to pass to the child of a clone */
+/* PR i#149/403015: clone record now passed via a new dstack */
+typedef struct _clone_record_t
+{
+	/* need to be filled up */
+} clone_record_t;
+
+
+
 static bool
 os_itimers_thread_shared()
 {
@@ -85,6 +95,21 @@ signal_thread_init(dcontext_t *dcontext)
 
 	/* all fields want to be initialized to 0 */
 	memset(info, 0, sizeof(thread_sig_info_t));
+
+	/* need to be filled up */
+}
+
+
+/* Called once a new thread's dcontext is created.
+ * Inherited and shared fields are set up here.
+ * The clone_record contains the continuation pc, which is returned.
+ */
+app_pc
+signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
+{
+	app_pc res = NULL;
+	clone_record_t *record = (clone_record_t *) clone_record;
+	thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
 
 	/* need to be filled up */
 }

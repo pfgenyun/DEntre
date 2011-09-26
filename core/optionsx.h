@@ -436,7 +436,7 @@
 
 
     DYNAMIC_OPTION_DEFAULT(uint, msgbox_mask,
-         /* Enable for client debug builds so DR ASSERTS are visible (xref PR 232783) */
+         /* Enable for client debug builds so DE ASSERTS are visible (xref PR 232783) */
          /* i#116/PR 394985: for Linux off by default since won't work for all apps */
          IF_WINDOWS_ELSE(IF_CLIENT_INTERFACE_ELSE(IF_DEBUG_ELSE(0xC, 0), 0), 0),
          "show a messagebox for events, use only for demonstration purposes")
@@ -640,7 +640,7 @@
                       IF_HAVE_TLS_ELSE(true, IF_X64_ELSE(true, false)),
         "use tls for indirect branch slot in private caches")
 
-    OPTION_INTERNAL(bool, single_thread_in_DR, "only one thread in DR at a time")
+    OPTION_INTERNAL(bool, single_thread_in_DE, "only one thread in DE at a time")
      /* deprecated: we have finer-grained synch that works now */
 
     OPTION_DEFAULT(bool, separate_private_stubs, true,
@@ -1343,7 +1343,7 @@
     PC_OPTION_DEFAULT(bool, executable_if_driver, true, 
         "allow execution from a kernel-mode address (case 9022)")
     PC_OPTION_DEFAULT(bool, driver_rct, true, 
-       /* marked as VM_DRIVER_ADDRESS */
+       /* marked as VM_DEIVER_ADDEESS */
         "allow any RCT if source is from a kernel-mode address (case 9022/9096)")
 
     /* methods to loosen policies */
@@ -1487,7 +1487,7 @@
 
     PC_OPTION_DEFAULT(bool, rct_modified_entry, true,
         "if not within module, lookup image entry point"
-        "in LDR list for already mapped modules, and at MapViewOfSection for late") 
+        "in LDE list for already mapped modules, and at MapViewOfSection for late") 
      /* expected to be overwritten by mscoree.dll */
 
 #   ifdef RCT_IND_BRANCH
@@ -1558,11 +1558,11 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT(liststring_t, block_mod_load_list, EMPTY_STRING,
         "if -enable_block_mod_load, block the loading (at LdrLoadDll) of the following ;-separated modules, note that since this is blocking at LdrLoadDll the module match will be based on the filename of module being loaded NOT the PE name (which is used by most other options)")
 
-    OPTION_DEFAULT(uint, handle_DR_modify, 1 /*DR_MODIFY_NOP*/, "specify how to handle app attempts to modify DR memory protection: either halt with an error, turn into a nop (default), or return failure to the app")
+    OPTION_DEFAULT(uint, handle_DE_modify, 1 /*DE_MODIFY_NOP*/, "specify how to handle app attempts to modify DE memory protection: either halt with an error, turn into a nop (default), or return failure to the app")
 
-    OPTION_DEFAULT(uint, handle_ntdll_modify, 1 /*DR_MODIFY_NOP*/, "specify how to handle app attempts to modify ntdll code: either halt with an error, turn into a nop (default), or return failure to the app")
+    OPTION_DEFAULT(uint, handle_ntdll_modify, 1 /*DE_MODIFY_NOP*/, "specify how to handle app attempts to modify ntdll code: either halt with an error, turn into a nop (default), or return failure to the app")
 
-    /* generalized DR_MODIFY_NOP for customizable list of modules */
+    /* generalized DE_MODIFY_NOP for customizable list of modules */
     OPTION_DEFAULT(liststring_t, patch_proof_default_list,
         EMPTY_STRING, "ignore protection changes and writes to text of ;-separated module list, or * for all")
         /* note '*' has to be at first position to mean all modules */
@@ -1664,7 +1664,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
                    "use separate persisted cache per user")
     OPTION_DEFAULT(bool, use_persisted, false,
                    "use persisted cache if it exists")
-    /* exemptions are based on canonical DR names (case 3858) */
+    /* exemptions are based on canonical DE names (case 3858) */
     OPTION_DEFAULT(liststring_t, persist_exclude_list, EMPTY_STRING,
         "exclude these ;-separated modules from persisted use and generation")
 #ifdef RCT_IND_BRANCH
@@ -1886,7 +1886,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
         "pretend system address space starts at this address (case 9022)")
 
     /* degenerate options: only used for run-once testing (case 3990) */
-    OPTION_INTERNAL(bool, unsafe_crash_process, "unsafe: generates a DR exception")
+    OPTION_INTERNAL(bool, unsafe_crash_process, "unsafe: generates a DE exception")
     OPTION_INTERNAL(bool, unsafe_hang_process, "unsafe: hang the process")
 
     /* unsafe experimental options */

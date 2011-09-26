@@ -776,3 +776,22 @@ os_thread_init(dcontext_t *dcontext)
 
 	/* need to be filled up */
 }
+
+
+/* initializes dynamorio library bounds.
+ * does not use any heap.
+ * assumed to be called prior to find_executable_vm_areas.
+ */
+int
+find_dentre_library_vm_areas(void)
+{
+	/* need to be filled up  */
+}
+
+
+/* assumed to be called after find_dynamo_library_vm_areas() */
+int
+find_executable_vm_areas(void)
+{
+	/* need to be filled up */
+}

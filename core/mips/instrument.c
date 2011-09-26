@@ -230,5 +230,11 @@ instrument_thread_init(dcontext_t *dcontext, bool client_thread)
 	/* need to be filled up  */
 }
 
+void
+instrument_init(void)
+{
+	/* need to be filled up */
+}
+
 #endif
 

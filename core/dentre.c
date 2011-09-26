@@ -44,6 +44,7 @@
 #include "mips/sideline.h"
 #include "mips/proc.h"
 #include "fcache.h"
+#include "dispatch.h"
 
 /* global thread-shared var */
 bool dentre_initialized = false;
@@ -298,6 +299,56 @@ dentre_app_init(void)
 	 * (in a race with injected threads, sometimes it is not the primary thread)
 	 */
 	dentre_thread_init(NULL _IF_CLIENT_INTERFACE(false));
+
+	/* we need to special-case the 1st thread */
+	signal_thread_inherit(get_thread_private_dcontext(), NULL);
+
+
+	/* We move vm_areas_init() below dynamo_thread_init() so we can have
+	 * two things: 1) a dcontext and 2) a SIGSEGV handler, for TRY/EXCEPT
+	 * inside vm_areas_init() for PR 361594's probes and for safe_read().
+	 * This means vm_areas_thread_init() runs before vm_areas_init().
+	 */
+	if (!DENTRE_OPTION(thin_client)) 
+	{
+        vm_areas_init();
+#ifdef RCT_IND_BRANCH
+	/* need to be filled up */
+#endif
+    } 
+	else 
+	{
+		/* This is needed to handle exceptions in thin_client mode, mostly
+		 * internal ones, but can be app ones too. */
+		dentre_vm_areas_lock();
+		find_dentre_library_vm_areas();
+		dentre_vm_areas_unlock();
+	}
+
+
+#ifdef CLIENT_INTERFACE
+	/* client last, in case it depends on other inits: must be after
+	 * dynamo_thread_init so the client can use a dcontext (PR 216936).
+	 * Note that we *load* the client library before installing our hooks,
+	 * but call the client's init routine afterward so that we correctly
+	 * report crashes (PR 200207).
+	 * Note: DllMain in client libraries can crash and we still won't
+	 *       report; better document that client libraries shouldn't have
+	 *       DllMain.
+	 */
+    instrument_init();
+#endif
+
+	/* need to be filled up */
+
+	/* this thread is now entering DR */
+	ENTERING_DE();
+
+	/* need to be filled up */
+
+	dentre_initialized = true;
+
+	/* need to be filled up */
 
 	return SUCCESS;
 
@@ -642,5 +693,18 @@ dentre_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
 	return SUCCESS;
 }
 
+
+/* enter/exit DE hooks */
+void
+entering_dentre(void)
+{
+	/* need to be filled up */
+}
+
+void
+exiting_dentre(void)
+{
+	/* need to be filled up */
+}
 
 

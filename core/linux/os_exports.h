@@ -39,6 +39,7 @@ int dup_syscall(int fd);
 ssize_t read_syscall(int fd, void *buf, size_t nbytes);
 ssize_t write_syscall(int fd, const void *buf, size_t nbytes);
 
-
+app_pc
+signal_thread_inherit(dcontext_t *dcontext, void *clone_record);
 
 #endif

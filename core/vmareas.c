@@ -133,6 +133,86 @@ typedef struct thread_data_t
 static vm_area_vector_t *dentre_areas;
 
 
+/* shared_data is synchronized via either single_thread_in_DR or
+ * the vector lock (cannot use bb_building_lock b/c both trace building
+ * and pc translation need read access and neither can/should grab
+ * the bb building lock, plus it's cleaner to not depend on it, and now
+ * with -shared_traces it's not sufficient).
+ * N.B.: the vector lock is used to protect not just the vector, but also
+ * the whole thread_data_t struct (including last_area) and sequences
+ * of vector operations.
+ * Kept on the heap for selfprot (case 7957).
+ */
+static thread_data_t *shared_data; /* set in vm_areas_reset_init() */
+
+
+/* We keep these list pointers on the heap for selfprot (case 8074). */
+typedef struct _deletion_lists_t 
+{
+	/* need to be filled up */
+} deletion_lists_t;
+
+static deletion_lists_t *todelete;
+
+
+typedef struct _last_deallocated_t 
+{
+	/* need to be filled up */
+} last_deallocated_t;
+
+static last_deallocated_t *last_deallocated;
+
+/* these two global vectors store all executable areas and all dynamo
+ * areas (executable or otherwise).
+ * executable_areas' custom field is used to store coarse unit info.
+ * for a FRAG_COARSE_GRAIN region, an info struct is always present, even
+ * if not yet executed from (initially, or after a flush).
+ */
+static vm_area_vector_t *executable_areas;
+static vm_area_vector_t *dentre_areas;
+
+/* Protected by executable_areas lock; used only to delete coarse_info_t
+ * while holding executable_areas lock during execute-less flushes
+ * (case 10995).  Extra layer of indirection to get on heap and avoid .data
+ * unprotection.
+ */
+static coarse_info_t **coarse_to_delete;
+                        
+/* used for DENTRE_OPTION(handle_DR_modify),
+ * DENTRE_OPTION(handle_ntdll_modify) == DR_MODIFY_NOP or
+ * DENTRE_OPTION(patch_proof_list)
+ */
+static vm_area_vector_t *pretend_writable_areas;
+
+/* used for DENTRE_OPTION(patch_proof_list) areas to watch */
+vm_area_vector_t *patch_proof_areas;
+
+/* used for DENTRE_OPTION(emulate_IAT_writes), though in future may be
+ * expanded, so not just ifdef WINDOWS or ifdef PROGRAM_SHEPHERDING
+ */
+vm_area_vector_t *emulate_write_areas;
+
+/* used for DENTRE_OPTION(IAT_convert)
+ * IAT or GOT areas of all mapped DLLs - note the exact regions are added here.
+ * While the IATs for modules in native_exec_areas are not added here - 
+ * note that any module's IAT may still be importing native modules.
+ */
+vm_area_vector_t *IAT_areas;
+
+
+/* Keeps persistent written-to and execution counts for switching back and
+ * forth from page prot to sandboxing.
+ */
+static vm_area_vector_t *written_areas;
+
+
+/* list of native_exec module regions 
+ * FIXME: since using general routines, could allocate this elsewhere if add
+ * vmvector_* interface heap alloc support
+ */
+vm_area_vector_t *native_exec_areas;
+
+
 /* used to determine when we need to do another heap walk to keep
  * dynamo vm areas up to date (can't do it incrementally b/c of
  * circular dependencies).
@@ -417,5 +497,99 @@ vm_areas_thread_init(dcontext_t * dcontext)
 }
 
 
+static void
+free_written_area(void *data)
+{
+	/* need to be filled up */
+}
+
+
+/* thread-shared initialization that should be repeated after a reset */
+void
+vm_areas_reset_init(void)
+{
+    memset(shared_data, 0, sizeof(*shared_data));
+    VMVECTOR_INITIALIZE_VECTOR(&shared_data->areas,
+                               VECTOR_SHARED | VECTOR_FRAGMENT_LIST, shared_vm_areas);
+}
+
+
+/* calls find_executable_vm_areas to get per-process map 
+ * N.B.: add_dynamo_vm_area can be called before this init routine!
+ * N.B.: this is called after vm_areas_thread_init()
+ */
+int
+vm_areas_init()
+{
+
+    int areas;
+
+    /* Case 7957: we allocate all vm vectors on the heap for self-prot reasons.
+     * We're already paying the indirection cost by passing their addresses
+     * to generic routines, after all.
+     */
+    VMVECTOR_ALLOC_VECTOR(executable_areas, GLOBAL_DCONTEXT, VECTOR_SHARED,
+                          executable_areas);
+    VMVECTOR_ALLOC_VECTOR(pretend_writable_areas, GLOBAL_DCONTEXT, VECTOR_SHARED,
+                          pretend_writable_areas);
+    VMVECTOR_ALLOC_VECTOR(patch_proof_areas, GLOBAL_DCONTEXT, VECTOR_SHARED,
+                          patch_proof_areas);
+    VMVECTOR_ALLOC_VECTOR(emulate_write_areas, GLOBAL_DCONTEXT, VECTOR_SHARED,
+                          emulate_write_areas);
+    VMVECTOR_ALLOC_VECTOR(IAT_areas, GLOBAL_DCONTEXT, VECTOR_SHARED,
+                          IAT_areas);
+    VMVECTOR_ALLOC_VECTOR(written_areas, GLOBAL_DCONTEXT,
+                          VECTOR_SHARED | VECTOR_NEVER_MERGE,
+                          written_areas);
+    vmvector_set_callbacks(written_areas, free_written_area, NULL, NULL, NULL);
+#ifdef PROGRAM_SHEPHERDING
+    VMVECTOR_ALLOC_VECTOR(futureexec_areas, GLOBAL_DCONTEXT, VECTOR_SHARED,
+                          futureexec_areas);
+#endif
+    VMVECTOR_ALLOC_VECTOR(native_exec_areas, GLOBAL_DCONTEXT, VECTOR_SHARED,
+                          native_exec_areas);
+
+    shared_data = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, thread_data_t, ACCT_VMAREAS, PROTECTED);
+
+    todelete = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, deletion_lists_t, ACCT_VMAREAS, PROTECTED);
+    memset(todelete, 0, sizeof(*todelete));
+
+    coarse_to_delete = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, coarse_info_t *,
+                                       ACCT_VMAREAS, PROTECTED);
+    *coarse_to_delete = NULL;
+
+    if (DENTRE_OPTION(unloaded_target_exception)) {
+        last_deallocated = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, last_deallocated_t, 
+                                           ACCT_VMAREAS, PROTECTED);
+        memset(last_deallocated, 0, sizeof(*last_deallocated));
+    } else
+        ASSERT(last_deallocated == NULL);
+
+    vm_areas_reset_init();
+
+    /* initialize dynamo list first */
+    LOG(GLOBAL, LOG_VMAREAS, 2,
+        "\n--------------------------------------------------------------------------\n");
+    dynamo_vm_areas_lock();
+    areas = find_dentre_library_vm_areas();
+    dynamo_vm_areas_unlock();
+
+    /* initialize executable list 
+     * this routine calls app_memory_allocation() w/ dcontext==NULL and so we
+     * won't go adding rwx regions, like the linux stack, to our list, even w/
+     * -executable_if_alloc
+     */
+    areas = find_executable_vm_areas();
+    DOLOG(1, LOG_VMAREAS, {
+        if (areas > 0) {
+            LOG(GLOBAL, LOG_VMAREAS, 1, "\nExecution is allowed in %d areas\n", areas);
+            print_executable_areas(GLOBAL);
+        }
+        LOG(GLOBAL, LOG_VMAREAS, 2,
+            "--------------------------------------------------------------------------\n");
+    });
+
+    return areas;
+}
 
 
