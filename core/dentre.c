@@ -694,6 +694,14 @@ dentre_thread_init(byte *dstack_in _IF_CLIENT_INTERFACE(bool client_thread))
 }
 
 
+/* Called by dynamorio_app_take_over in arch-specific assembly file */
+void
+dentre_app_take_over_helper(de_mcontext_t *mc)
+{
+	/* need to be filled up */
+}
+
+
 /* enter/exit DE hooks */
 void
 entering_dentre(void)

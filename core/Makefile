@@ -15,8 +15,8 @@
 # this list of conditions and the following disclaimer in the documentation
 # and/or other materials provided with the distribution.
 
-OBJ_PRELOAD = preload.o os.o config.o
-SOURCE_PRELOAD = preload.c os.c config.c
+OBJ_PRELOAD = preload.o os.o config.o mips.asm.o
+SOURCE_PRELOAD = preload.c os.c config.c mips.asm
 
 OBJ_DENTRE = utils.o dentre.o options.o instrument.o perfctr.o	\
 			 heap.o proc.o vmareas.o
@@ -24,6 +24,7 @@ SOURCE_DENTRE = utils.c dentre.c options.c instrument.c perfctr.c	\
 				heap.c proc.c vmareas.c
 
 CC = gcc
+CPP = cpp
 C_FLAG = -g -O0 -fPIC -shared -DO32  
 #C_FLAG = -g -O0 -fPIC -shared -DO32  -DDEBUG -DINTERNAL
 C_FLAG_PRELOAD = -DNOT_DENTRE_CORE_PROPER 
@@ -46,6 +47,8 @@ ALL:
 	$(CC) ${C_FLAG} ${C_FLAG_PRELOAD} ${D_FLAG} ${TOOL_FLAG} linux/preload.c          -c -o  ${OBJDIR}preload.o;		\
 	$(CC) ${C_FLAG} ${C_FLAG_PRELOAD} ${D_FLAG} ${TOOL_FLAG} linux/os.c               -c -o  ${OBJDIR}os.o;				\
 	$(CC) ${C_FLAG} ${C_FLAG_PRELOAD} ${D_FLAG} ${TOOL_FLAG} config.c                 -c -o  ${OBJDIR}config.o;			\
+	$(CPP) ${C_FLAG} ${C_FLAG_PRELOAD} ${D_FLAG} ${TOOL_FLAG} mips/mips.asm           -E -o  ${OBJDIR}mips.asm.o.s;		\
+	$(CC) ${C_FLAG} ${C_FLAG_PRELOAD} ${D_FLAG} ${TOOL_FLAG} ${OBJDIR}mips.asm.o.s    -c -o  ${OBJDIR}mips.asm.o;		\
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} utils.c                  -c -o  ${OBJDIR}utils.o;			\
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} dentre.c                 -c -o  ${OBJDIR}dentre.o;			\
 	$(CC) ${C_FLAG} ${C_FLAG_DENTRE} ${D_FLAG} ${TOOL_FLAG} options.c                -c -o  ${OBJDIR}options.o;			\
